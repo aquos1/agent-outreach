@@ -76,18 +76,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PATH-01, PATH-02, PATH-03 | TBD | Pending |
-| DISC-01, DISC-02, DISC-03, DISC-04 | TBD | Pending |
-| PERS-01 | TBD | Pending |
-| QUEUE-01, QUEUE-02, QUEUE-03, QUEUE-04 | TBD | Pending |
-| DEDUP-01, DEDUP-02 | TBD | Pending |
-| DASH-01, DASH-02 | TBD | Pending |
+| DEDUP-01 | Phase 1 — Foundation | Pending |
+| PATH-01, PATH-02, PATH-03 | Phase 2 — Contact Discovery | Pending |
+| DISC-01, DISC-02, DISC-03, DISC-04 | Phase 2 — Contact Discovery | Pending |
+| DEDUP-02 | Phase 2 — Contact Discovery | Pending |
+| PERS-01 (opening line), PERS-01 (assembly) | Phase 3 — AI Personalization | Pending |
+| QUEUE-01, QUEUE-02, QUEUE-03, QUEUE-04 | Phase 4 — Review Queue and Sequence Enrollment | Pending |
+| DASH-01, DASH-02 | Phase 5 — Analytics Dashboard | Pending |
 
 **Coverage:**
 - v1 requirements: 16 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 16 ⚠️
+- Mapped to phases: 16 (all mapped)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-19*
-*Last updated: 2026-07-19 after initial definition*
+*Last updated: 2026-07-19 after roadmap creation*
