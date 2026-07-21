@@ -38,7 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Wave 0: project scaffold, dependency pins, theme/gitignore, and RED test harness
+- [x] 01-01-PLAN.md — Wave 0: project scaffold, dependency pins, theme/gitignore, and RED test harness
 - [ ] 01-02-PLAN.md — Persistent SQLite registry: prospect/email_events schema + contacted_registry dedup view (DEDUP-01)
 - [ ] 01-03-PLAN.md — External connectivity checks: Apollo health/credits client + SPF/DMARC/DKIM DNS checks
 
@@ -114,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Planned | - |
+| 1. Foundation | 1/4 | In Progress|  |
 | 2. Contact Discovery | 0/TBD | Not started | - |
 | 3. AI Personalization | 0/TBD | Not started | - |
 | 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
