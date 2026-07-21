@@ -1,0 +1,28 @@
+# Secrets / API keys — never commit
+.streamlit/secrets.toml
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets.json
+secrets.yaml
+secrets.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# SQLite data
+*.db
+*.sqlite
+*.sqlite3
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
