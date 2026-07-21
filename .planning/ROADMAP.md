@@ -30,7 +30,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A teammate can see a clear error message (not a stack trace) if the Apollo key is missing or invalid
   3. The SQLite database is created automatically on first launch with the full prospect and email_events schema — no manual setup required
   4. The contacted registry (prospect IDs and company domains) persists across app restarts
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 01-01-PLAN.md — Wave 0: project scaffold, dependency pins, theme/gitignore, and RED test harness
+- [ ] 01-02-PLAN.md — Persistent SQLite registry: prospect/email_events schema + contacted_registry dedup view (DEDUP-01)
+- [ ] 01-03-PLAN.md — External connectivity checks: Apollo health/credits client + SPF/DMARC/DKIM DNS checks
+- [ ] 01-04-PLAN.md — System Health landing page + app boot wiring with D-01/D-02/D-03 gating
 
 ### Phase 2: Contact Discovery
 **Goal**: A teammate can pick one of three outreach paths, enter a company type and target role, review the credit cost, and see a list of enriched contacts with verified emails — ready for personalization
@@ -88,7 +93,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/4 | Planned | - |
 | 2. Contact Discovery | 0/TBD | Not started | - |
 | 3. AI Personalization | 0/TBD | Not started | - |
 | 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
