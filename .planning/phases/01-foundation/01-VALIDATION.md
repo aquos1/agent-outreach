@@ -2,7 +2,7 @@
 phase: 01
 slug: foundation
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-20
 ---
@@ -77,4 +77,4 @@ created: 2026-07-20
 - [ ] Feedback latency < 10s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved — gsd-plan-checker confirmed Dimension 8 (Nyquist Compliance) against 01-01..01-04-PLAN.md (2026-07-21)

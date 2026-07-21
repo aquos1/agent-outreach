@@ -503,22 +503,22 @@ SENDING_DOMAIN = "outreach.yourclub.org"
 | A3 | `checkdmarc` package name/existence — discovered via WebSearch, not Context7 or official docs, though `slopcheck` confirms it exists on PyPI | Standard Stack (Supporting), Don't Hand-Roll | Low risk — package is explicitly marked deferred/optional and not part of the Phase 1 install list |
 | A4 | Streamlit's `st.stop()` halts only the current script run and does not prevent `st.navigation` from re-evaluating on the next rerun/interaction (used to justify the D-01 gating pattern) | Architecture Patterns, Pattern 1/2 | If `st.stop()` behaves differently than assumed, the gate might not re-check on every interaction — mitigate by re-running the Apollo check at the top of every script execution (Streamlit's normal execution model reruns the whole script on each interaction anyway, which is the standard framework behavior, so this is low risk) |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact `usage_stats/api_usage_stats` response schema (credit balance field name)**
+1. **Exact `usage_stats/api_usage_stats` response schema (credit balance field name)** — RESOLVED: addressed via defensive coding, not a live-call confirmation. Not a blocker.
    - What we know: Endpoint exists, requires master key, POST method, documented as showing "credits used within the current billing cycle" per Apollo's knowledge base article "What Are Credits?"
    - What's unclear: The literal JSON key(s) for remaining/used credits
-   - Recommendation: First Wave 0 task should include one live authenticated test call (with the team's real Apollo key) logged/printed to confirm the shape, then hardcode the confirmed key name. Until then, code defensively (see `get_credit_balance()` example) and never let a missing field crash the health page — D-03 explicitly says this is informational-only.
+   - Resolution: Plan 01-03 codes `get_credit_balance()` defensively (per the example in this doc) so a missing/renamed field never crashes the health page — D-03 makes this informational-only by design. Plan 01-04 Task 3 (human-verify checkpoint) captures the raw JSON from a real authenticated call and confirms/adjusts the field name during execution, per the Wave-0-verify comment left in 01-03.
 
-2. **Whether Apollo's People Search response includes an organization-level `primary_domain` (or similarly named) field**
+2. **Whether Apollo's People Search response includes an organization-level `primary_domain` (or similarly named) field** — RESOLVED: deferred to Phase 2, correct phase boundary.
    - What we know: Apollo's org data model generally includes a primary domain concept (used elsewhere, e.g., organization search)
    - What's unclear: Whether the *people* search response (not organization search) surfaces it directly, or whether it must be derived from the enriched contact's email domain after Phase 2's enrichment step
-   - Recommendation: Defer to Phase 2 research — Phase 1's schema already has a `company_domain` column that accepts a value whenever it becomes available in the pipeline; this doesn't block Phase 1 completion.
+   - Resolution: Out of scope for Phase 1. The `company_domain` column exists in the schema (Plan 01-02) and accepts a value whenever it becomes available in the pipeline; Phase 2 research will re-verify against a live Apollo response before Phase 2 planning.
 
-3. **Whether DNS is reachable from the eventual Streamlit Community Cloud hosting environment for the DKIM/SPF/DMARC checks**
+3. **Whether DNS is reachable from the eventual Streamlit Community Cloud hosting environment for the DKIM/SPF/DMARC checks** — RESOLVED: moot for Phase 1, since Community Cloud deployment is out of scope this phase (local dev only).
    - What we know: DNS resolution worked from this local dev machine during research (confirmed live)
    - What's unclear: Whether Streamlit Community Cloud's egress allows arbitrary DNS TXT queries (as opposed to just HTTPS to known API hosts) — most cloud hosts allow this, but not verified for Community Cloud specifically
-   - Recommendation: Low risk given DNS resolution is baseline infrastructure functionality on any modern PaaS, but flag as a smoke-test item if the mailbox health check behaves differently in production vs. local dev.
+   - Resolution: Flagged as a smoke-test item for whichever future phase first deploys to Community Cloud; does not block Phase 1 execution, which runs locally.
 
 ## Environment Availability
 
