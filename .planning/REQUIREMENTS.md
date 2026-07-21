@@ -32,7 +32,7 @@
 
 ### Deduplication
 
-- [ ] **DEDUP-01**: System tracks all previously contacted Apollo contact IDs and company domains in a local registry
+- [x] **DEDUP-01**: System tracks all previously contacted Apollo contact IDs and company domains in a local registry
 - [ ] **DEDUP-02**: Contacts already present in the registry are excluded before enrichment (no credit waste on repeat contacts)
 
 ### Analytics
@@ -76,7 +76,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEDUP-01 | Phase 1 — Foundation | Pending |
+| DEDUP-01 | Phase 1 — Foundation | Complete |
 | PATH-01, PATH-02, PATH-03 | Phase 2 — Contact Discovery | Pending |
 | DISC-01, DISC-02, DISC-03, DISC-04 | Phase 2 — Contact Discovery | Pending |
 | DEDUP-02 | Phase 2 — Contact Discovery | Pending |
