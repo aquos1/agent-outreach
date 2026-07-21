@@ -1,0 +1,8 @@
+[theme]
+primaryColor = "#2563EB"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#0F172A"
+font = "sans serif"
+baseFontSize = 16
+headingFontWeights = 600

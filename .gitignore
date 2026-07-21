@@ -16,11 +16,13 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.pytest_cache/
 
 # SQLite data
 *.db
 *.sqlite
 *.sqlite3
+db/outreach.db
 
 # Editor / OS
 .DS_Store
