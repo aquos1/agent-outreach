@@ -99,3 +99,12 @@ None for this plan — `APOLLO_API_KEY` and `SENDING_DOMAIN` are consumed at run
 ---
 *Phase: 01-foundation*
 *Completed: 2026-07-21*
+
+## Self-Check: PASSED
+
+- FOUND: apollo/client.py
+- FOUND: mailbox/dns_checks.py
+- FOUND: .planning/phases/01-foundation/01-03-SUMMARY.md
+- FOUND commit: 703f1b1 (feat: Apollo client)
+- FOUND commit: c308e8d (feat: DNS mailbox checks)
+- FOUND commit: 318b6c3 (docs: SUMMARY.md)
