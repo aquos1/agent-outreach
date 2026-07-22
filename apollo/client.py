@@ -63,12 +63,14 @@ def get_credit_balance(api_key: str) -> tuple[int | None, str]:
         return None, "Credit balance unavailable"
 
     data = resp.json()
-    # WAVE-0 VERIFY: the exact JSON key for remaining credits in
-    # usage_stats/api_usage_stats was not confirmed against a live authenticated
-    # call during research (RESEARCH.md Open Question #1, MEDIUM confidence).
-    # This defensive lookup means a wrong/renamed key degrades to "unavailable"
-    # (D-03) rather than crashing; confirm the real key name against a live
-    # call before Plan 01-04 wires this into the st.metric display.
+    # CONFIRMED (01-04 Task 3 human-verify, live call): this endpoint returns
+    # per-endpoint rate-limit consumption (keyed by e.g. '["api/v1/contacts",
+    # "bulk_match"]' -> {day,hour,minute: {limit,consumed,left_over}}), not a
+    # credit balance. Apollo does not expose credit balance via any API
+    # endpoint — per docs.apollo.io/docs/api-pricing, it's dashboard-only
+    # (Settings > Billing and credits > Credit usage). This lookup will always
+    # miss and correctly degrade to "unavailable" (D-03, non-blocking) — that
+    # is the permanent expected behavior, not a bug to fix.
     credits = data.get("credits") or data.get("credit_balance")
     if credits is None:
         return None, "Credit balance unavailable (unexpected response shape)"
