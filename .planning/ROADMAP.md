@@ -59,7 +59,21 @@ Plans:
   3. Before any enrichment credits are spent, teammate sees the remaining credit balance and the estimated cost for the current contact batch
   4. The contact list returned contains only contacts with verified email addresses, and previously contacted contacts (matched by Apollo ID or company domain) are excluded from the list
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Discovery logic + dedup: free-text→filter translation, has_email pre-filter, cost estimate, contacted_registry dedup query (PATH-02, DISC-01, DISC-02, DISC-04, DEDUP-02)
+- [ ] 02-02-PLAN.md — Apollo client: search_people + bulk_match_people + enrich_candidates batching + 429 backoff (DISC-03)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 02-03-PLAN.md — Live Apollo field-name verification checkpoint + reconcile .get() lookups (DISC-02, DISC-03)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 02-04-PLAN.md — Contact Discovery page: two-stage session-state Find→Enrich flow + nav registration (PATH-01, PATH-03)
 **UI hint**: yes
 
 ### Phase 3: AI Personalization
@@ -115,7 +129,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
-| 2. Contact Discovery | 0/TBD | Not started | - |
+| 2. Contact Discovery | 0/4 | Not started | - |
 | 3. AI Personalization | 0/TBD | Not started | - |
 | 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
