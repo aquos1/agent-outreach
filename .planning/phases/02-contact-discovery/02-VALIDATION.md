@@ -2,8 +2,8 @@
 phase: 2
 slug: contact-discovery
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-07-24
 ---
 
@@ -38,16 +38,17 @@ created: 2026-07-24
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 02-XX-XX | TBD | 0 | PATH-01 | — | Exactly 3 path options rendered, in order | manual-only | — (visual check against UI-SPEC) | N/A — manual per project convention | ⬜ pending |
-| 02-XX-XX | TBD | TBD | PATH-02 | — | Path selection changes only sequence ID/template, never search filters | unit | `pytest tests/test_discovery_logic.py::test_path_does_not_affect_filters -x` | ❌ W0 | ⬜ pending |
-| 02-XX-XX | TBD | 0 | PATH-03 | — | Free text company type + role accepted as inputs | manual-only | — | N/A — manual | ⬜ pending |
-| 02-XX-XX | TBD | TBD | DISC-01 | — | Free text translated into Apollo filters correctly (comma-split, no AI) | unit | `pytest tests/test_discovery_logic.py::test_to_filter_list -x` | ❌ W0 | ⬜ pending |
-| 02-XX-XX | TBD | TBD | DISC-02 | — | `has_email:false` candidates excluded before enrichment | unit | `pytest tests/test_discovery_logic.py::test_has_email_prefilter -x` | ❌ W0 | ⬜ pending |
-| 02-XX-XX | TBD | TBD | DISC-03 | — | Bulk enrichment retrieves emails, batches ≤10 per call | unit (mocked `requests`) | `pytest tests/test_apollo_client.py::test_bulk_match_people_batches_of_ten -x` | ❌ W0 | ⬜ pending |
-| 02-XX-XX | TBD | TBD | DISC-04 | — | Cost estimate = `min(matched-and-deduped, 50)`, computed with no Apollo call | unit | `pytest tests/test_discovery_logic.py::test_cost_estimate_no_apollo_call -x` | ❌ W0 | ⬜ pending |
-| 02-XX-XX | TBD | TBD | DEDUP-02 | — | Candidates already in `contacted_registry` excluded pre-enrichment | unit (uses `tmp_db_path` fixture + real `ensure_schema()`) | `pytest tests/test_prospects.py::test_dedup_filter_excludes_known_contacts -x` | ❌ W0 | ⬜ pending |
-| 02-XX-XX | TBD | TBD | Error handling (429/401/403/422) | — | Client functions return correct typed-tuple + message per code | unit (mocked `requests`) | `pytest tests/test_apollo_client.py::test_search_people_error_codes tests/test_apollo_client.py::test_bulk_match_people_error_codes -x` | ❌ W0 | ⬜ pending |
-| 02-XX-XX | TBD | 0 | Session-state flow (two-stage Find/Enrich) | — | Manual (no Streamlit component test harness configured) | manual-only | — | N/A — manual | ⬜ pending |
+| 02-04-01 | 02-04 | 3 | PATH-01 | — | Exactly 3 path options rendered, in order | manual-only | — (visual check against UI-SPEC) | N/A — manual per project convention | ⬜ pending |
+| 02-01-02 | 02-01 | 1 | PATH-02 | — | Path selection changes only sequence ID/template, never search filters | unit | `pytest tests/test_discovery_logic.py::test_path_does_not_affect_filters -x` | ✅ (Task 1 RED) | ⬜ pending |
+| 02-04-01 | 02-04 | 3 | PATH-03 | — | Free text company type + role accepted as inputs | manual-only | — | N/A — manual | ⬜ pending |
+| 02-01-02 | 02-01 | 1 | DISC-01 | — | Free text translated into Apollo filters correctly (comma-split, no AI) | unit | `pytest tests/test_discovery_logic.py::test_to_filter_list -x` | ✅ (Task 1 RED) | ⬜ pending |
+| 02-01-02, 02-03-02 | 02-01, 02-03 | 1, 2 | DISC-02 | — | `has_email:false` candidates excluded before enrichment | unit | `pytest tests/test_discovery_logic.py::test_has_email_prefilter -x` | ✅ (Task 1 RED) | ⬜ pending |
+| 02-02-03, 02-03-02 | 02-02, 02-03 | 1, 2 | DISC-03 | — | Bulk enrichment retrieves emails, batches ≤10 per call | unit (mocked `requests`) | `pytest tests/test_apollo_client.py::test_bulk_match_people_batches_of_ten -x` | ✅ (Task 1 RED) | ⬜ pending |
+| 02-01-02 | 02-01 | 1 | DISC-04 | — | Cost estimate = `min(matched-and-deduped, 50)`, computed with no Apollo call | unit | `pytest tests/test_discovery_logic.py::test_cost_estimate_no_apollo_call -x` | ✅ (Task 1 RED) | ⬜ pending |
+| 02-01-03 | 02-01 | 1 | DEDUP-02 | — | Candidates already in `contacted_registry` excluded pre-enrichment | unit (uses `tmp_db_path` fixture + real `ensure_schema()`) | `pytest tests/test_prospects.py::test_dedup_filter_excludes_known_contacts -x` | ✅ (Task 1 RED) | ⬜ pending |
+| 02-02-02, 02-02-03 | 02-02 | 1 | Error handling (429/401/403/422) | — | Client functions return correct typed-tuple + message per code | unit (mocked `requests`) | `pytest tests/test_apollo_client.py::test_search_people_error_codes tests/test_apollo_client.py::test_bulk_match_people_error_codes -x` | ✅ (Task 1 RED) | ⬜ pending |
+| 02-04-03 | 02-04 | 3 | Session-state flow (two-stage Find/Enrich) | — | Manual (no Streamlit component test harness configured) | manual-only | — | N/A — manual | ⬜ pending |
+| 02-03-01 | 02-03 | 2 | DISC-02, DISC-03 (field-name confidence) | — | Live Apollo field-name verification checkpoint (Wave 0 human-verify) | checkpoint:human-verify | manual live calls, see 02-03-PLAN.md Task 1 | N/A — checkpoint | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

@@ -261,6 +261,11 @@ def _chunk(items: list, size: int = 10):
     for i in range(0, len(items), size):
         yield items[i : i + size]
 
+def _domain_from_org(organization: dict) -> str | None:
+    from urllib.parse import urlparse
+    netloc = urlparse(organization.get("website_url", "") or "").netloc
+    return netloc.removeprefix("www.").lower() or None
+
 def enrich_candidates(api_key: str, candidates: list[dict]) -> tuple[list[dict] | None, str]:
     """Batches candidates into groups of <=10 and calls bulk_match_people per batch."""
     all_matches: list[dict] = []
@@ -269,9 +274,10 @@ def enrich_candidates(api_key: str, candidates: list[dict]) -> tuple[list[dict] 
             {
                 "id": c["id"],                          # search-result person id
                 "first_name": c.get("first_name"),
-                "last_name": c.get("last_name"),
+                # NOTE: search results only carry last_name_obfuscated, never a real
+                # last_name — omit it rather than passing the obfuscated placeholder.
                 "organization_name": c.get("organization", {}).get("name"),
-                "domain": c.get("organization_domain"),   # see Open Questions — exact field TBD
+                "domain": _domain_from_org(c.get("organization", {})),
             }
             for c in batch
         ]
@@ -426,7 +432,7 @@ Nothing deprecated/outdated to flag — Apollo's REST API surface used here (`mi
 
 **Resolution path for A1-A4:** Add a Wave 0 `checkpoint:human-verify` task — one real `search_people()` call and one real `bulk_match_people()` call against a live Apollo account, inspecting the raw JSON response and adjusting field-name lookups if they differ from the assumptions above. This exactly mirrors Phase 1's Task 3 resolution of the credit-balance field-name question (01-04-SUMMARY.md).
 
-## Open Questions
+## Open Questions (RESOLVED via Plan 02-03 checkpoint)
 
 1. **Exact field names in `mixed_people/api_search` and `people/bulk_match` responses (A1/A2 above)**
    - What we know: Field names corroborated across 2+ independent secondary sources (a third-party blog, a third-party OpenAPI mirror) and partially confirmed by official docs' parameter-only pages.
