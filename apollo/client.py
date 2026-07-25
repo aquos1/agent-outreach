@@ -154,3 +154,74 @@ def search_people(
 
     data = resp.json()
     return data.get("people", []), "OK"
+
+
+def bulk_match_people(api_key: str, details: list[dict]) -> tuple[list[dict] | None, str]:
+    """Enrich up to 10 people via Apollo's bulk_match (DISC-03, 1 credit/match).
+
+    Returns (matches_or_None, message). Never raises.
+    """
+    resp = _post_with_retry(
+        f"{APOLLO_BASE}/people/bulk_match", api_key, {"details": details}
+    )
+    if resp is None:
+        return None, "Contact enrichment failed — check your internet connection and try again."
+
+    if resp.status_code == 401:
+        return None, "Apollo connection failed — check that APOLLO_API_KEY is set correctly in Streamlit secrets."
+    if resp.status_code == 403:
+        return None, "Apollo connection failed — this key is not a Master API key. Check Apollo Settings → Integrations → API Keys."
+    if resp.status_code == 429:
+        return None, "Apollo is rate-limiting enrichment requests — please wait a few minutes and try again."
+    if resp.status_code == 422:
+        apollo_message = resp.json().get("message", "invalid request")
+        return None, f"Apollo couldn't enrich these contacts — {apollo_message}"
+    if resp.status_code != 200:
+        return None, f"Contact enrichment failed — unexpected status {resp.status_code}."
+
+    data = resp.json()
+    return data.get("matches", []), "OK"
+
+
+def _chunk(items: list, size: int = 10):
+    """Yield successive `size`-length chunks of `items` (Pattern 3, DISC-03)."""
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
+
+
+def _domain_from_org(organization: dict) -> str | None:
+    """Derive a bare domain from a search-result organization dict's website_url.
+
+    Duplicated locally (not imported from db/prospects.py) — Plan 02-01 creates
+    that module in the same wave, and a cross-import here would race against it
+    (T-02-11 hedge: pass redundant name/org/domain fields, not id-only).
+    """
+    from urllib.parse import urlparse
+
+    netloc = urlparse(organization.get("website_url", "") or "").netloc
+    return netloc.removeprefix("www.").lower() or None
+
+
+def enrich_candidates(api_key: str, candidates: list[dict]) -> tuple[list[dict] | None, str]:
+    """Batch `candidates` into groups of <=10 and enrich each via bulk_match_people.
+
+    Returns (all_matches, "OK") on full success, or the first failing batch's
+    (None, msg) immediately (D-06 fail-fast). Never raises. Email-only (v1
+    scope) — no phone-reveal param is ever requested (CLAUDE.md: +8 credits).
+    """
+    all_matches: list[dict] = []
+    for batch in _chunk(candidates, 10):
+        details = [
+            {
+                "id": c.get("id"),
+                "first_name": c.get("first_name"),
+                "organization_name": c.get("organization", {}).get("name"),
+                "domain": _domain_from_org(c.get("organization", {})),
+            }
+            for c in batch
+        ]
+        matches, msg = bulk_match_people(api_key, details)
+        if matches is None:
+            return None, msg
+        all_matches.extend(matches)
+    return all_matches, "OK"
