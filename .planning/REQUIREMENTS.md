@@ -14,8 +14,8 @@
 ### Contact Discovery
 
 - [ ] **DISC-01**: Agent translates user's company type and role inputs into Apollo People Search filters (no raw filter UI shown to user)
-- [ ] **DISC-02**: Apollo search results are pre-filtered to contacts with `has_email: true` before enrichment (no credits spent on un-emailable contacts)
-- [ ] **DISC-03**: Agent runs Apollo bulk enrichment to retrieve verified email addresses for discovered contacts
+- [x] **DISC-02**: Apollo search results are pre-filtered to contacts with `has_email: true` before enrichment (no credits spent on un-emailable contacts)
+- [x] **DISC-03**: Agent runs Apollo bulk enrichment to retrieve verified email addresses for discovered contacts
 - [ ] **DISC-04**: Credit balance is displayed to the user before any enrichment begins so they can see cost impact before committing
 
 ### Personalization

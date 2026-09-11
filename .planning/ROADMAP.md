@@ -69,7 +69,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 02-03-PLAN.md — Live Apollo field-name verification checkpoint + reconcile .get() lookups (DISC-02, DISC-03)
+- [x] 02-03-PLAN.md — Live Apollo field-name verification checkpoint + reconcile .get() lookups (DISC-02, DISC-03)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -129,7 +129,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
-| 2. Contact Discovery | 2/4 | In Progress|  |
+| 2. Contact Discovery | 3/4 | In Progress|  |
 | 3. AI Personalization | 0/TBD | Not started | - |
 | 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
