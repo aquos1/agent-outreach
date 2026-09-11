@@ -37,8 +37,9 @@ if not apollo_key:
 #    is always the default landing screen.
 pages = {
     "Health": [st.Page("pages/health_page.py", title="System Health", default=True)],
-    # Phase 2+ will append real pages here (e.g. Discovery, Personalization,
-    # Review Queue, Campaign Dashboard) once the Apollo health gate passes.
+    "Discovery": [st.Page("pages/discovery_page.py", title="Contact Discovery")],
+    # Phase 3+ will append remaining real pages here (Personalization, Review
+    # Queue, Campaign Dashboard) once the Apollo health gate passes.
 }
 
 pg = st.navigation(pages)
