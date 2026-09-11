@@ -57,6 +57,10 @@ def filter_has_email(people: list[dict]) -> list[dict]:
 
     A candidate missing the key entirely is dropped, not crashed on —
     defensive `.get()` per the Assumptions A1 degradation rule.
+
+    CONFIRMED (02-03 live human-verify, 2026-09-11): a real
+    `mixed_people/api_search` response carries `has_email` as a boolean on
+    every person, exactly as assumed — no field-name mismatch found here.
     """
     return [p for p in people if p.get("has_email")]
 

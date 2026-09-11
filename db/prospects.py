@@ -42,6 +42,17 @@ def dedup_filter(candidates: list[dict], db_path: str = "db/outreach.db") -> lis
     registry's dedupable_domain is non-NULL — a free-email domain (e.g.
     gmail.com) never causes a domain-level exclusion, since
     contacted_registry already NULLs dedupable_domain for those rows.
+
+    CONFIRMED (02-03 live human-verify, 2026-09-11): live
+    `mixed_people/api_search` results never carry `organization.website_url`
+    at this pre-enrichment stage (see apollo/client.py::_domain_from_org),
+    so `candidate_domain` below will always evaluate to None against real
+    search data — domain-level dedup at this call site only fires in tests
+    that seed a synthetic `website_url`. This is the exact degradation
+    Assumption A4 predicted: id-level dedup is the one guarantee that holds
+    pre-enrichment against live data; domain-level dedup effectively only
+    applies post-enrichment (once real `organization.website_url` is present
+    on enriched match rows, per insert_enriched below).
     """
     conn = sqlite3.connect(db_path)
     try:
@@ -78,6 +89,17 @@ def insert_enriched(
     defensively. company_domain is derived from the match's organization
     website_url when present, falling back to the email domain otherwise.
     Commits once after all rows are staged; returns the number inserted.
+
+    CONFIRMED (02-03 live human-verify, 2026-09-11): a real `bulk_match`
+    match's `organization.website_url` is present and populated (unlike the
+    pre-enrichment search-stage organization — see dedup_filter above), so
+    the company_domain derivation below is confirmed correct as written. The
+    `organization_name` flat-string field assumed in RESEARCH.md A2 does NOT
+    exist live — the real shape nests the name under `organization.name`
+    (a dict), same as the search response. `company` below is reconciled to
+    try the confirmed-real `organization.name` first, keeping
+    `match.get("organization_name")` only as a defensive fallback in case
+    Apollo ever adds that flat field.
     """
     conn = sqlite3.connect(db_path)
     try:
@@ -86,7 +108,7 @@ def insert_enriched(
         for match in rows:
             name = match.get("name")
             organization = match.get("organization") or {}
-            company = match.get("organization_name") or organization.get("name")
+            company = organization.get("name") or match.get("organization_name")
             email = match.get("email")
             apollo_person_id = match.get("id")
 

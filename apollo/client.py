@@ -160,6 +160,17 @@ def bulk_match_people(api_key: str, details: list[dict]) -> tuple[list[dict] | N
     """Enrich up to 10 people via Apollo's bulk_match (DISC-03, 1 credit/match).
 
     Returns (matches_or_None, message). Never raises.
+
+    CONFIRMED (02-03 live human-verify, 2026-09-11): the `{"matches": [...]}`
+    wrapper key and each match's `id`, `first_name`, `last_name`, `name`,
+    `email`, `email_status` fields are all live-verified exactly as assumed
+    (RESEARCH.md A2). Two mismatches found and reconciled: (1) there is no
+    flat `organization_name` string field on a match — the real shape nests
+    it as `organization.name` (a dict), same as the search response — see
+    db/prospects.py::insert_enriched for the corrected lookup order; (2)
+    `credits_consumed` does not exist anywhere in the live response and is
+    not referenced by any code in this repo, so no fix was needed. Live
+    match rate on a 3-person batch was 2/3 (67%) — non-trivial, confirms A3.
     """
     resp = _post_with_retry(
         f"{APOLLO_BASE}/people/bulk_match", api_key, {"details": details}
@@ -195,6 +206,16 @@ def _domain_from_org(organization: dict) -> str | None:
     Duplicated locally (not imported from db/prospects.py) — Plan 02-01 creates
     that module in the same wave, and a cross-import here would race against it
     (T-02-11 hedge: pass redundant name/org/domain fields, not id-only).
+
+    CONFIRMED (02-03 live human-verify, 2026-09-11): a real
+    `mixed_people/api_search` organization object never carries `website_url`
+    (or any domain-bearing field) — it only has `name` plus boolean `has_*`
+    flags at this pre-enrichment stage. This function will therefore always
+    return None when called from enrich_candidates() on raw search results —
+    that is expected, not a bug: the `.get()` degrades gracefully exactly as
+    Assumption A4 predicted, and `id`/`first_name`/`organization_name` are
+    still sent alongside the (always-None) domain per Pattern 3's redundant-
+    field hedge, which live-verified at a non-trivial 2/3 match rate.
     """
     from urllib.parse import urlparse
 
