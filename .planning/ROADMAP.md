@@ -88,7 +88,22 @@ Plans:
   2. The full assembled email draft (opening line + template body) is visible to the teammate per contact before any send action is taken
   3. If Apollo enrichment data is sparse for a contact, the app falls back to a safe generic opening line rather than generating a plausible fabrication
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — anthropic dependency pin + ANTHROPIC_API_KEY boot gate + Wave 0 RED test harness (PERS-01)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 03-02-PLAN.md — personalization package: grounded Haiku opening line, shared fallback, three verbatim path templates (PERS-01)
+- [ ] 03-03-PLAN.md — idempotent draft-column migration + update_draft() status='drafted' write (PERS-01)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 03-04-PLAN.md — Discovery page: auto-chained draft generation, progress, View draft expanders, fallback banner + human verify (PERS-01)
+**UI hint**: yes
 
 ### Phase 4: Review Queue and Sequence Enrollment
 
@@ -130,6 +145,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
-| 3. AI Personalization | 0/TBD | Not started | - |
+| 3. AI Personalization | 0/4 | Planned | - |
 | 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
