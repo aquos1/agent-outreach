@@ -14,7 +14,7 @@ Five vertical slices that build on each other, each delivering something a teamm
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Verified Apollo connection, SQLite schema, and mailbox health check — nothing can run without this (completed 2026-07-22)
-- [ ] **Phase 2: Contact Discovery** - Teammate picks a path, enters targeting, and sees a credit-aware list of enriched contacts with duplicates excluded
+- [x] **Phase 2: Contact Discovery** - Teammate picks a path, enters targeting, and sees a credit-aware list of enriched contacts with duplicates excluded (completed 2026-09-17)
 - [ ] **Phase 3: AI Personalization** - Teammate sees a full AI-assembled email draft per contact before any send decision is made
 - [ ] **Phase 4: Review Queue and Sequence Enrollment** - Teammate reviews drafts and approves the queue to enroll contacts into Apollo sequences — emails get sent
 - [ ] **Phase 5: Analytics Dashboard** - Teammate sees open rate and reply rate per campaign pulled live from Apollo
@@ -73,7 +73,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 02-04-PLAN.md — Contact Discovery page: two-stage session-state Find→Enrich flow + nav registration (PATH-01, PATH-03)
+- [x] 02-04-PLAN.md — Contact Discovery page: two-stage session-state Find→Enrich flow + nav registration (PATH-01, PATH-03)
 **UI hint**: yes
 
 ### Phase 3: AI Personalization

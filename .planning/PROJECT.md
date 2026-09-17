@@ -12,12 +12,11 @@ Non-technical teammates can launch a full outreach campaign in minutes instead o
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Teammate selects one of three outreach paths (club sponsorship, productthon sponsorship, client sourcing) — Phase 2
+- ✓ Agent finds relevant contacts via Apollo.io API based on the selected path (free-text targeting, credit-aware cost estimate, deduped verified-email results) — Phase 2
 
 ### Active
 
-- [ ] Teammate selects one of three outreach paths (club sponsorship, productthon sponsorship, client sourcing)
-- [ ] Agent finds relevant contacts via Apollo.io API based on the selected path
 - [ ] Agent generates a custom opening line per contact, with a reusable template for the body
 - [ ] Agent sends email sequences via Apollo.io sequencing
 - [ ] Per-campaign toggle: auto-send or queue for teammate review before sending
@@ -50,8 +49,8 @@ Non-technical teammates can launch a full outreach campaign in minutes instead o
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Apollo.io for both contact data and sequencing | Single API handles find + send; avoids integrating two systems | — Pending |
-| 3 fixed paths, not freeform | Non-technical users need guardrails; paths map to known use cases | — Pending |
+| Apollo.io for both contact data and sequencing | Single API handles find + send; avoids integrating two systems | ✓ Confirmed working — Phase 2 (search + bulk_match live-verified) |
+| 3 fixed paths, not freeform | Non-technical users need guardrails; paths map to known use cases | ✓ Shipped — Phase 2 |
 | Per-campaign approval toggle | Some runs need human review (high-stakes), others can auto-fire | — Pending |
 
 ## Evolution
@@ -72,4 +71,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-19 after initialization*
+*Last updated: 2026-09-17 after Phase 2 (Contact Discovery)*
