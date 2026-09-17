@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Verified Apollo connection, SQLite schema, and mailbox health check — nothing can run without this (completed 2026-07-22)
 - [x] **Phase 2: Contact Discovery** - Teammate picks a path, enters targeting, and sees a credit-aware list of enriched contacts with duplicates excluded (completed 2026-09-17)
-- [ ] **Phase 3: AI Personalization** - Teammate sees a full AI-assembled email draft per contact before any send decision is made
+- [x] **Phase 3: AI Personalization** - Teammate sees a full AI-assembled email draft per contact before any send decision is made (completed 2026-09-17)
 - [ ] **Phase 4: Review Queue and Sequence Enrollment** - Teammate reviews drafts and approves the queue to enroll contacts into Apollo sequences — emails get sent
 - [ ] **Phase 5: Analytics Dashboard** - Teammate sees open rate and reply rate per campaign pulled live from Apollo
 
@@ -102,7 +102,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 03-04-PLAN.md — Discovery page: auto-chained draft generation, progress, View draft expanders, fallback banner + human verify (PERS-01)
+- [x] 03-04-PLAN.md — Discovery page: auto-chained draft generation, progress, View draft expanders, fallback banner + human verify (PERS-01)
 **UI hint**: yes
 
 ### Phase 4: Review Queue and Sequence Enrollment
@@ -145,6 +145,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
-| 3. AI Personalization | 3/4 | In Progress|  |
+| 3. AI Personalization | 4/4 | Complete   | 2026-09-17 |
 | 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |

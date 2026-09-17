@@ -20,8 +20,8 @@
 
 ### Personalization
 
-- [ ] **PERS-01**: Agent generates one AI-written personalized opening line per contact using Claude Haiku, seeded with Apollo's returned title and company fields only (industry/seniority explicitly excluded per D-06 hallucination-risk mitigation, locked in Phase 3 discuss-phase)
-- [ ] **PERS-01**: Agent assembles the full email draft: AI opening line + path-specific template body
+- [x] **PERS-01**: Agent generates one AI-written personalized opening line per contact using Claude Haiku, seeded with Apollo's returned title and company fields only (industry/seniority explicitly excluded per D-06 hallucination-risk mitigation, locked in Phase 3 discuss-phase)
+- [x] **PERS-01**: Agent assembles the full email draft: AI opening line + path-specific template body
 
 ### Review Queue
 
@@ -80,7 +80,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PATH-01, PATH-02, PATH-03 | Phase 2 — Contact Discovery | Pending |
 | DISC-01, DISC-02, DISC-03, DISC-04 | Phase 2 — Contact Discovery | Pending |
 | DEDUP-02 | Phase 2 — Contact Discovery | Pending |
-| PERS-01 (opening line), PERS-01 (assembly) | Phase 3 — AI Personalization | Pending |
+| PERS-01 (opening line), PERS-01 (assembly) | Phase 3 — AI Personalization | Complete |
 | QUEUE-01, QUEUE-02, QUEUE-03, QUEUE-04 | Phase 4 — Review Queue and Sequence Enrollment | Pending |
 | DASH-01, DASH-02 | Phase 5 — Analytics Dashboard | Pending |
 
