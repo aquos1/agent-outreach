@@ -127,3 +127,32 @@ def insert_enriched(
         return count
     finally:
         conn.close()
+
+
+def update_draft(
+    prospect_id: str | int,
+    opening_line: str,
+    source: str,
+    first_name: str | None = None,
+    db_path: str = "db/outreach.db",
+) -> None:
+    """Persist a generated draft and advance the contact to status='drafted'.
+
+    D-04: drafts must live in SQLite, not session state only, so Phase 4's
+    Review Queue can query them. `apollo_person_id` (not the internal `id`
+    primary key) is the match key, matching how insert_enriched stores it
+    and what the caller's raw Apollo match dict carries as `id`.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE prospect SET "
+            "opening_line = ?, draft_source = ?, first_name = ?, "
+            "status = 'drafted', updated_at = CURRENT_TIMESTAMP "
+            "WHERE apollo_person_id = ?",
+            (opening_line, source, first_name, prospect_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
