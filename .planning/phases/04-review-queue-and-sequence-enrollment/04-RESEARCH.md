@@ -449,3 +449,227 @@ None new — discussion stayed within phase scope (the one scope addition, bulk 
 
 **Research date:** 2026-09-17
 **Valid until:** 2026-10-17 (30 days — Apollo API and Streamlit are both moderately stable; the `send_email_from_email_account_id` gap and exact reason-code strings should be re-verified at implementation time regardless of this date, per the human-verify checkpoints noted above)
+
+## Personalization Delivery (D-14 through D-18)
+
+**Researched:** 2026-09-17 (targeted follow-up pass, live `docs.apollo.io` fetches — CITED unless noted)
+**Domain:** Apollo custom-field (Typed Custom Field) creation, idempotent lookup, and delivery of the AI opening line into contact records and sequence email bodies.
+**Confidence:** MEDIUM-HIGH — endpoint paths, params, and response shapes are CITED from live fetches this session; one genuinely new finding (a field-ID format mismatch between the listing and creation/write endpoints) was cross-verified across three separate pages and is HIGH confidence.
+
+### 1. Idempotent custom-field lookup — the current, non-deprecated endpoint
+
+`GET /fields?source=custom` is the live replacement for the deprecated `GET /typed_custom_fields` list call. **[CITED: docs.apollo.io/reference/get-a-list-of-fields]**
+
+- **Method/path:** `GET https://api.apollo.io/api/v1/fields`
+- **Query params:** `source` (optional) — allowed values `system`, `custom`, `crm_synced`. Use `source=custom` to scope the list to only team-created custom fields (filters out Apollo's built-in system fields like `contact.id`/`contact.first_name`).
+- **Response shape:** top-level key is `"fields"` (an array) — **not** `"typed_custom_fields"` (that wrapper key is only used by the two write endpoints, `POST /fields` and the create/update contact bodies). Each entry has (at minimum): `id`, `label`, `type`, `modality`, `source`, plus several UI-only bookkeeping fields (`category`, `context`, `editable`, `example`, `group`, `icon_class`, etc.) irrelevant to this phase.
+- **No pagination** — the endpoint returns the full field list in one call, so a single `GET` is sufficient for the idempotency check (no need for a paging loop).
+
+**Critical gotcha — field-ID format mismatch (HIGH confidence, cross-verified 3x this session):** `GET /fields` returns each custom field's `id` **prefixed by modality**, e.g. `"account.694095a80f1b6000110fc556"` for an account-scope field or (by the same pattern) `"contact.<hex>"` for a contact-scope field. But the id you must use as the *key* inside a `typed_custom_fields` dict — in both `POST /contacts/bulk_create` and `PATCH /contacts/{contact_id}` — is the **raw, unprefixed hex string** (e.g. `"60c39ed82bd02f01154c470a"`), which is exactly the format `POST /fields` returns on creation (`typed_custom_fields[0].id`, no prefix). **[CITED: docs.apollo.io/reference/get-a-list-of-fields, /reference/create-a-custom-field, /reference/bulk-create-contacts, /reference/update-a-contact — cross-verified across all four pages, consistent every time]**
+
+This means any `ensure_custom_field()` implementation that reads the field id straight off a `GET /fields` match and passes it unmodified into `typed_custom_fields` **will silently fail to attach the opening line** (Apollo will likely ignore an unrecognized key rather than error — this exact failure mode was not live-tested this session, treat as a real risk, not a hypothetical). The fix is one line: always take everything after the first `.` in the listing response's `id` before using it as a `typed_custom_fields` key:
+```python
+raw_field_id = field["id"].split(".", 1)[-1]
+```
+
+### 2. Field length limit
+
+No absolute documented maximum. `meta.max_length` on `POST /fields` (type `string`) is optional and configurable; the two live examples this session found used `120` (create-a-custom-field's example) and `240` (update-a-custom-field's example) — both illustrative, not caps. **[CITED: docs.apollo.io/reference/create-a-custom-field, /reference/update-a-custom-field]**
+
+**Recommendation:** set `meta.max_length: 500` explicitly at creation time. The opening line is ~20-30 words (~150-250 characters per CONTEXT.md D-14), so 500 gives roughly 2x headroom — comfortable margin against an occasional longer Claude Haiku output without ever truncating mid-sentence, while still being a deliberate, explicit choice rather than relying on an undocumented default. **[ASSUMED — the 500 figure is a reasoned buffer, not itself sourced from an Apollo-documented cap; low risk if wrong, since exceeding `max_length` most likely just truncates or rejects the value, and 500 vs. the actual opening-line length (150-250 chars) leaves enough slack that this is very unlikely to matter in practice]**
+
+### 3. Recommended new functions in `apollo/client.py`
+
+Three new functions, all following the existing `(result, message)`-tuple-never-raises convention (see `check_apollo_health`, `bulk_match_people`). Two are plain `requests` calls without `_post_with_retry` (GET lookup mirrors `check_apollo_health`'s un-retried shape, since it's a boot-time/first-use call, not a bulk operation); the field-creation POST reuses `_post_with_retry` like every other write call in this file.
+
+```python
+def _find_custom_field_id(api_key: str, label: str) -> tuple[str | None, str]:
+    """GET /fields?source=custom, match by exact label + modality='contact'.
+
+    Returns (raw_field_id, "OK") on a match, (None, "NOT_FOUND") if no field
+    with this label exists yet (not an error -- the caller creates one), or
+    (None, banner_message) on any real failure. Never raises.
+
+    CITED (docs.apollo.io/reference/get-a-list-of-fields, live fetch): response
+    wraps results in a top-level "fields" array (not "typed_custom_fields").
+    Each entry's "id" is prefixed by modality (e.g. "contact.<hex>") -- this is
+    NOT the same string used as the key in a typed_custom_fields dict
+    elsewhere in this codebase (bulk_create, update-a-contact use the RAW
+    unprefixed hex id). Always strip the prefix before returning.
+    """
+    try:
+        resp = requests.get(
+            f"{APOLLO_BASE}/fields",
+            headers={"x-api-key": api_key},
+            params={"source": "custom"},
+            timeout=10,
+        )
+    except requests.RequestException:
+        return None, "Could not check Apollo custom fields — check your internet connection."
+    if resp.status_code == 401:
+        return None, "Apollo connection failed — check that APOLLO_API_KEY is set correctly in Streamlit secrets."
+    if resp.status_code == 403:
+        return None, "Apollo connection failed — this key is not a Master API key."
+    if resp.status_code != 200:
+        return None, f"Could not check Apollo custom fields — unexpected status {resp.status_code}."
+
+    for field in resp.json().get("fields", []):
+        if field.get("label") == label and field.get("modality") == "contact":
+            return field["id"].split(".", 1)[-1], "OK"
+    return None, "NOT_FOUND"
+
+
+def ensure_custom_field(
+    api_key: str, label: str = "AI Opening Line"
+) -> tuple[str | None, str]:
+    """Idempotently resolve the custom field id carrying the AI opening line (D-18).
+
+    Checks _find_custom_field_id() first; only calls POST /fields to create a
+    new field if none exists yet. Safe to call every app boot, matching
+    db/schema.py's ensure_schema() idempotent-boot convention -- the
+    underlying Apollo API call is the source of truth, not a local flag, so
+    this stays correct even across a fresh checkout / new deployment where no
+    local state remembers a prior run.
+
+    Returns (field_id_or_None, message). Never raises.
+    """
+    field_id, msg = _find_custom_field_id(api_key, label)
+    if field_id is not None:
+        return field_id, "OK"
+    if msg != "NOT_FOUND":
+        return None, msg  # a real failure, not "doesn't exist yet"
+
+    payload = {
+        "label": label,
+        "modality": "contact",
+        "type": "string",
+        "meta": {"max_length": 500},
+    }
+    resp = _post_with_retry(f"{APOLLO_BASE}/fields", api_key, payload)
+    if resp is None:
+        return None, "Could not create the Apollo custom field — check your internet connection and try again."
+    if resp.status_code == 401:
+        return None, "Apollo connection failed — check that APOLLO_API_KEY is set correctly in Streamlit secrets."
+    if resp.status_code == 403:
+        return None, "Apollo connection failed — this key is not a Master API key."
+    if resp.status_code == 422:
+        apollo_message = resp.json().get("message", "invalid request")
+        return None, f"Apollo couldn't create the custom field — {apollo_message}"
+    if resp.status_code != 200:
+        return None, f"Could not create the Apollo custom field — unexpected status {resp.status_code}."
+
+    created = resp.json().get("typed_custom_fields", [])
+    if not created:
+        return None, "Apollo created the field but returned no id — check Apollo Settings > Fields manually."
+    return created[0]["id"], "OK"
+
+
+def update_contact_custom_field(
+    api_key: str, contact_id: str, field_id: str, value: str
+) -> tuple[bool, str]:
+    """PATCH /contacts/{contact_id} -- attach the opening line to a contact
+    bulk_create returned in existing_contacts (D-17), since bulk_create
+    leaves those rows completely unmodified regardless of the
+    typed_custom_fields sent in the create request.
+
+    Returns (success, message). Never raises.
+    """
+    try:
+        resp = requests.patch(
+            f"{APOLLO_BASE}/contacts/{contact_id}",
+            headers={"x-api-key": api_key},
+            json={"typed_custom_fields": {field_id: value}},
+            timeout=15,
+        )
+    except requests.RequestException:
+        return False, "Could not update this contact's opening line — check your internet connection."
+    if resp.status_code == 401:
+        return False, "Apollo connection failed — check that APOLLO_API_KEY is set correctly in Streamlit secrets."
+    if resp.status_code == 403:
+        return False, "Apollo connection failed — this key is not a Master API key."
+    if resp.status_code == 429:
+        return False, "Apollo is rate-limiting contact updates — please wait a moment and try again."
+    if resp.status_code == 422:
+        apollo_message = resp.json().get("message", "invalid request")
+        return False, f"Apollo couldn't update this contact — {apollo_message}"
+    if resp.status_code != 200:
+        return False, f"Could not update this contact's opening line — unexpected status {resp.status_code}."
+    return True, "OK"
+```
+
+**`create_contacts_bulk()` (04-03/QUEUE-04) extension for D-16:** add an `opening_line_field_id: str | None = None` parameter. For each outbound contact dict, if `opening_line_field_id` is provided and the contact carries a non-empty `opening_line` value, attach `"typed_custom_fields": {opening_line_field_id: contact["opening_line"]}` to that contact's entry in the `contacts` payload array before the existing `POST /contacts/bulk_create` call — no separate API call, exactly as D-16 specifies. `opening_line` itself must be excluded from the top-level contact dict (Apollo has no native `opening_line` field — it only accepts recognized contact fields plus `typed_custom_fields`):
+```python
+def create_contacts_bulk(
+    api_key: str,
+    contacts: list[dict],
+    label_names: list[str],
+    opening_line_field_id: str | None = None,
+) -> tuple[dict | None, str]:
+    payload_contacts = []
+    for c in contacts:
+        entry = {k: v for k, v in c.items() if k != "opening_line"}
+        if opening_line_field_id and c.get("opening_line"):
+            entry["typed_custom_fields"] = {opening_line_field_id: c["opening_line"]}
+        payload_contacts.append(entry)
+    payload = {
+        "contacts": payload_contacts,
+        "run_dedupe": True,
+        "append_label_names": label_names,
+    }
+    # ... unchanged _post_with_retry + status-branch handling below
+```
+
+**Where the D-17 follow-up call fits in the pipeline (extends the Architecture Patterns diagram above):**
+```
+create_contacts_bulk(..., opening_line_field_id=field_id)
+        │
+        ├─ created_contacts[]  ──► opening line already attached (sent in the create payload) — no follow-up needed
+        └─ existing_contacts[] ──► opening line NOT attached (bulk_create leaves these rows unmodified) —
+                                    for each, call update_contact_custom_field(api_key, contact["id"], field_id, opening_line)
+                                    keyed by the same email -> prospect_id map (Pattern 2) to look up each contact's opening_line
+```
+
+### 4. Where to resolve and cache the field ID
+
+**Recommendation: resolve lazily on first load of `review_queue_page.py` each session, cached in `st.session_state["opening_line_field_id"]`.**
+
+Rationale, weighed against two alternatives:
+- **Not app.py boot-time (rejected):** `app.py`'s existing gate (`APOLLO_API_KEY`/`ANTHROPIC_API_KEY` `st.stop()` checks) blocks *every* page, including Health and Discovery, which don't need this field. Adding a live Apollo network call to every app boot for a capability only the Review Queue page uses would violate `discovery_page.py`'s established "never hard-stop on a failure that isn't this page's own concern" convention (Pattern Map, "Try/except-wrapped external call" shared pattern) and adds latency to pages that don't care.
+- **Not a manually-created secrets entry (rejected):** D-18 explicitly frames this as "check-if-exists before create, matching this project's established `ensure_schema()` pattern" — i.e., the app should self-heal/auto-create if missing, not require the teammate (a non-technical user, per CLAUDE.md's core constraint) to go create a field in Apollo's UI and hand-copy an id into `secrets.toml`. That contradicts the zero-technical-knowledge requirement this project is built around.
+- **Chosen: lazy + `st.session_state` cache.** `review_queue_page.py` already reads `st.secrets.get(...)` once at module top (Pattern Map convention); extend this with `if "opening_line_field_id" not in st.session_state: st.session_state.opening_line_field_id, field_msg = ensure_custom_field(apollo_key)`. This runs once per browser session (Streamlit reruns the script on every interaction, but `session_state` persists across reruns within one session — it resets only on a fresh session/app restart, at which point `ensure_custom_field`'s idempotent check-then-create logic correctly finds the already-existing field rather than creating a duplicate). If `ensure_custom_field` fails (network error, 401/403), degrade the same way `discovery_page.py` degrades on `enrich_candidates` failure: show an `st.error` banner on the Review Queue page and disable "Approve Selected"/"Approve All" until it resolves — never `st.stop()` the whole app over this page-scoped capability.
+
+### 5. Manual Apollo-UI setup — exact steps for the 04-05 human-verify checkpoint
+
+Once `ensure_custom_field()` creates the field (or confirms it exists), a human must still do a one-time manual step per sequence: insert the field's auto-generated merge tag into each of the 3 real sequences' first email step, replacing the `{opening_line}` placeholder text from `personalization/templates.py`'s `PATH_TEMPLATES`. Based on `knowledge.apollo.io`'s "Use Custom Dynamic Variables" and "Use Basic Dynamic Variables" articles **[CITED, via WebSearch-indexed excerpts — the knowledge-base pages themselves returned HTTP 403 to direct WebFetch, so this is CITED via search-engine cache/summary, not a direct page fetch; treat step-by-step wording as MEDIUM confidence, verify against the live UI during the checkpoint itself]**:
+
+1. In Apollo, open the target sequence and click into its first email step (the one containing `personalization/templates.py`'s static paragraph text, copied in manually per D-14).
+2. Click in the email body at the exact spot where `{opening_line}` currently sits (or where it should go, if the paragraph text is being retyped) and delete the literal placeholder text.
+3. Click the **`{ }`** button in the email editor's toolbar — this opens Apollo's dynamic-variable picker.
+4. Apollo groups variables by field type/source; find the custom field created in Step 3 above (default label recommended: **"AI Opening Line"**) under the custom-fields group and select it. This inserts its auto-generated `{{merge_tag}}` at the cursor position.
+5. Use Apollo's native `{{first_name}}` and `{{company_name}}` basic dynamic variables (same `{ }` picker, "Basic" group) wherever the template's `{first_name}`/`{company}` placeholders sit — no custom field needed for these, per D-14.
+6. Select a real contact from the sequence's contact list to preview the assembled email and confirm the merge tag resolves to a real value (not left as raw `{{...}}` text).
+7. Save the email step. Repeat for all 3 sequences (club sponsorship, productthon, client sourcing) — each is a separate one-time manual setup per D-14.
+
+**New pitfall found this session, relevant to this checkpoint — Apollo blocks sends on unresolved required variables:** Apollo's dynamic-variable preview highlights an unresolved variable in red and **blocks the sequence email from sending** if a "required" dynamic variable has no value for a given contact. **[CITED: knowledge.apollo.io, via WebSearch summary]** `POST /fields` (per the docs fetched this session) exposes no `required` parameter, so a field created via `ensure_custom_field()` should default to *not* required — but this should be explicitly confirmed in Apollo's field settings UI during the 04-05 checkpoint (Apollo may have a separate "make required" toggle in the UI layer that isn't exposed via this creation endpoint). If the field is ever marked required, any contact whose `opening_line` custom-field value is missing or empty at send time (e.g., a Phase 3 draft-generation fallback scenario) would have its entire sequence email silently blocked, not just personalization-degraded — a more severe failure mode than a blank line. Recommend leaving the field non-required and treating a blank opening line as an acceptable (if suboptimal) send, consistent with Phase 3's existing fallback-opening-line convention (`draft_source = 'fallback'`).
+
+### Assumptions Log Addendum (D-14–D-18)
+
+| # | Claim | Section | Risk if Wrong |
+|---|-------|---------|---------------|
+| A5 | `meta.max_length: 500` is a safe, sufficient cap for the opening line | §2 Field length limit | Low — even if Apollo silently truncates at 500, the opening line (150-250 chars) is comfortably under that; would only matter if Claude Haiku output is unexpectedly 2x+ longer than CONTEXT.md's stated 20-30 words |
+| A6 | An Apollo custom field created via `POST /fields` (no `required` param sent) defaults to NOT required, and won't block sequence sends for contacts with a blank opening line | §5 Manual setup pitfall | Medium — if wrong, a contact with a missing/fallback opening line could have its entire sequence email blocked rather than just sent with a blank personalization line; must be confirmed in Apollo's field-settings UI during the 04-05 human-verify checkpoint, not assumed |
+| A7 | The exact `{ }`-button / dynamic-variable-picker UI steps (§5) are accurate to the current live Apollo sequence editor | §5 Manual setup steps | Low-Medium — sourced via WebSearch summary of a knowledge-base article that returned HTTP 403 on direct fetch; if the UI has since changed, the checkpoint's human operator will discover the correct current steps live and can self-correct without any code change required |
+
+### Sources Addendum (D-14–D-18)
+
+**Primary/Secondary (CITED, live fetch this session):**
+- https://docs.apollo.io/reference/get-a-list-of-fields — `GET /fields`, `source` param values, response shape, field-ID prefix format
+- https://docs.apollo.io/reference/create-a-custom-field — `POST /fields` request/response shape, `meta.max_length` examples (120)
+- https://docs.apollo.io/reference/update-a-custom-field — `PATCH /fields`, confirms no conditional-update capability (list-then-write only), `meta.max_length` example (240)
+- https://docs.apollo.io/reference/get-a-list-of-all-custom-fields — deprecation notice confirming the `GET /fields?source=custom` replacement
+- https://docs.apollo.io/reference/bulk-create-contacts — confirms `typed_custom_fields` key is the raw unprefixed field id
+- https://docs.apollo.io/reference/update-a-contact — confirms the same raw unprefixed key format for `PATCH /contacts/{contact_id}`
+
+**Tertiary (LOW-MEDIUM confidence, WebSearch-indexed summaries — direct WebFetch returned HTTP 403 on both knowledge-base pages):**
+- https://knowledge.apollo.io/hc/en-us/articles/4409494161677-Use-Custom-Dynamic-Variables — `{ }` insertion steps, custom-field grouping in the picker, unresolved-variable red-highlight/send-blocking behavior
+- https://knowledge.apollo.io/hc/en-us/articles/4409415084813-Use-Basic-Dynamic-Variables — confirms `{ }` picker is shared between basic (`{{first_name}}`/`{{company_name}}`) and custom dynamic variables
