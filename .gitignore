@@ -28,3 +28,6 @@ db/outreach.db
 .DS_Store
 .vscode/
 .idea/
+
+# Local scratch / collateral (not source)
+tmp/

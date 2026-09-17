@@ -27,7 +27,7 @@
 
 - [ ] **QUEUE-01**: All generated email drafts are placed in a review queue before any email is sent
 - [ ] **QUEUE-02**: User sees all drafts in the queue (contact name, company, role, full email preview)
-- [ ] **QUEUE-03**: A single "Approve All" button enrolls the entire queue into the Apollo sequence for that path
+- [ ] **QUEUE-03**: Each queued contact has a checkbox (default checked); "Approve Selected" and "Approve All" both enroll the checked contacts into the Apollo sequence for that path. Unchecked contacts remain `status='drafted'` and stay in the queue for a later run (not discarded).
 - [ ] **QUEUE-04**: Sequence enrollment creates Apollo contacts (with `run_dedupe: true`) and enrolls them in the path's pre-configured Apollo sequence
 
 ### Deduplication
