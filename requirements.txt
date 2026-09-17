@@ -1,3 +1,4 @@
 streamlit==1.59.2
 requests==2.34.2
 dnspython==2.8.0
+anthropic==1.6.0
