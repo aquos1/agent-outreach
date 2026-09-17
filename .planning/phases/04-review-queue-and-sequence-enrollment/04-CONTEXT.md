@@ -16,6 +16,7 @@ A new Review Queue page where a teammate sees every drafted email across all thr
 ### Sequence ID resolution
 - **D-01:** The 3 Apollo sequence IDs (one per path) are hardcoded in `.streamlit/secrets.toml`, the same permanent config file already holding `APOLLO_API_KEY`, `ANTHROPIC_API_KEY`, and `SENDING_DOMAIN` — not looked up dynamically via `emailer_campaigns/search`. Rationale: zero live API dependency at enrollment time, and it won't silently break if a sequence gets renamed in Apollo.
 - **D-02:** Secrets key naming: `APOLLO_SEQUENCE_ID_CLUB_SPONSORSHIP`, `APOLLO_SEQUENCE_ID_PRODUCTTHON`, `APOLLO_SEQUENCE_ID_CLIENT_SOURCING` — SCREAMING_SNAKE_CASE matching the existing secrets convention.
+- **D-13 (added post-research):** `add_contact_ids` requires a `send_email_from_email_account_id` query param that nothing in the project previously resolved — 04-RESEARCH.md flagged this as a genuine gap, not a research ambiguity. Resolved the same way as D-01: hardcode a single new secret, `APOLLO_SENDING_EMAIL_ACCOUNT_ID`, looked up once in Apollo (one mailbox/domain shared across all 3 paths, matching the existing single `SENDING_DOMAIN` secret) rather than resolved live via `GET /email_accounts` at enrollment time.
 
 ### Bulk template editor (scope addition — see Folded Todos below)
 - **D-03:** The template editor lives on the new Review Queue page, above the list of drafts — not on the existing Discovery page's "Email Drafts" section (that stays Phase 3's read-only preview).
