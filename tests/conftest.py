@@ -6,8 +6,12 @@ Provides:
   object with .status_code and .json(), for monkeypatching requests.get/requests.post
 - mock_dns_txt: a fixture that returns a helper for monkeypatching
   dns.resolver.resolve to return canned TXT answers or raise NXDOMAIN/NoAnswer
+- mock_anthropic_message: a factory fixture that builds a fake anthropic Message-like
+  object with .content, for monkeypatching a fake client's messages.create()
 """
 from __future__ import annotations
+
+import types
 
 import pytest
 import dns.resolver
@@ -47,6 +51,35 @@ class _FakeTXTRecord:
     def __init__(self, text: str):
         # dnspython TXT answers expose a `.strings` list of bytes chunks
         self.strings = [text.encode()]
+
+
+class _FakeAnthropicMessage:
+    """Minimal stand-in for anthropic.types.Message used in unit tests.
+
+    Not the real SDK response class (RESEARCH.md Pattern 1 / conftest
+    convention: minimal stand-in, not the real SDK object) -- exposes only
+    the `.content` list-of-content-blocks shape that
+    personalization/generator.py's text-extraction line consumes:
+    `[b.text for b in message.content if b.type == "text"]`.
+    """
+
+    def __init__(self, text: str):
+        self.content = [types.SimpleNamespace(type="text", text=text)]
+
+
+@pytest.fixture
+def mock_anthropic_message():
+    """Factory fixture: mock_anthropic_message(text) -> _FakeAnthropicMessage.
+
+    Usage: monkeypatch a fake client's `messages.create` to return
+    `mock_anthropic_message("some text")`, so tests never construct a real
+    anthropic.Anthropic() or hit the network.
+    """
+
+    def _make(text: str) -> _FakeAnthropicMessage:
+        return _FakeAnthropicMessage(text)
+
+    return _make
 
 
 @pytest.fixture

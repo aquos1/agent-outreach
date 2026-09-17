@@ -103,3 +103,57 @@ def test_persistence_across_reconnect(tmp_db_path):
         assert row[0] == "Reconnect Test Contact"
     finally:
         conn2.close()
+
+
+def test_column_migration_idempotent(tmp_db_path):
+    """ensure_schema() must retroactively add opening_line/first_name/draft_source
+    columns onto a pre-existing prospect table that predates Phase 3 (RESEARCH.md
+    Pitfall 1) -- CREATE TABLE IF NOT EXISTS alone would silently no-op."""
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        conn.execute(
+            """
+            CREATE TABLE prospect (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                name                TEXT NOT NULL,
+                company             TEXT,
+                company_domain      TEXT,
+                apollo_person_id    TEXT,
+                apollo_contact_id   TEXT,
+                email               TEXT,
+                path                TEXT,
+                status              TEXT NOT NULL DEFAULT 'found'
+                                    CHECK (status IN (
+                                        'found','selected','enriched',
+                                        'contact_created','drafted','approved','sequenced'
+                                    )),
+                sequence_id         TEXT,
+                created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO prospect (name, company_domain, status) VALUES (?, ?, 'enriched')",
+            ("Pre-Migration Contact", "acme.com"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+    ensure_schema(tmp_db_path)  # second call must not raise
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(prospect)")
+        column_names = {row[1] for row in cur.fetchall()}
+        assert {"opening_line", "first_name", "draft_source"} <= column_names
+
+        cur.execute("SELECT COUNT(*) FROM prospect")
+        assert cur.fetchone()[0] == 1
+    finally:
+        conn.close()
