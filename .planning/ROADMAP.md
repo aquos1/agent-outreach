@@ -118,7 +118,25 @@ Plans:
   3. After enrollment, the teammate sees per-contact status (Enrolled / Skipped with reason) — a 200 OK from Apollo alone is not treated as confirmation
   4. Enrolled contacts and their company domains are added to the deduplication registry immediately after successful enrollment
 
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Review Queue page: path-scoped queue of drafted contacts + per-row draft preview; title/last_name columns and the template_override table (QUEUE-01, QUEUE-02)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 04-02-PLAN.md — Shared per-path template editor: merge-field validation, SQLite override persistence, immediate preview re-assembly (D-03-D-06)
+- [ ] 04-03-PLAN.md — Enrollment engine: Apollo bulk_create + add_contact_ids clients, pure reconciliation/outcome logic, status transitions (QUEUE-04)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 04-04-PLAN.md — Approve slice: default-checked selection, confirmation dialog, enrollment handler, per-contact Enrolled/Skipped badges (QUEUE-03, QUEUE-04)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 04-05-PLAN.md — Live Apollo verification: resolve the 4 sequence/mailbox secrets, one real end-to-end enrollment, reconcile response shapes (QUEUE-03, QUEUE-04)
 **UI hint**: yes
 
 ### Phase 5: Analytics Dashboard
@@ -146,5 +164,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
 | 3. AI Personalization | 4/4 | Complete   | 2026-09-17 |
-| 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
+| 4. Review Queue and Sequence Enrollment | 0/5 | Planned     | - |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
