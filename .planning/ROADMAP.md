@@ -97,8 +97,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 03-02-PLAN.md — personalization package: grounded Haiku opening line, shared fallback, three verbatim path templates (PERS-01)
-- [ ] 03-03-PLAN.md — idempotent draft-column migration + update_draft() status='drafted' write (PERS-01)
+- [x] 03-02-PLAN.md — personalization package: grounded Haiku opening line, shared fallback, three verbatim path templates (PERS-01)
+- [x] 03-03-PLAN.md — idempotent draft-column migration + update_draft() status='drafted' write (PERS-01)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -145,6 +145,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
-| 3. AI Personalization | 1/4 | In Progress|  |
+| 3. AI Personalization | 3/4 | In Progress|  |
 | 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
