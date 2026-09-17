@@ -73,7 +73,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Add bulk template editor to Email Drafts page (`ui`) — see `.planning/todos/pending/2026-09-17-add-bulk-template-editor-to-email-drafts-page.md`
+None — "Add bulk template editor to Email Drafts page" was folded into Phase 4's scope during discuss-phase (2026-09-17); see `.planning/todos/completed/2026-09-17-add-bulk-template-editor-to-email-drafts-page.md`.
 
 ### Blockers/Concerns
 
