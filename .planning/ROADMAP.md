@@ -118,8 +118,9 @@ Plans:
   3. After enrollment, the teammate sees per-contact status (Enrolled / Skipped with reason) — a 200 OK from Apollo alone is not treated as confirmation
   4. Enrolled contacts and their company domains are added to the deduplication registry immediately after successful enrollment
 
-**Plans**: 5 plans
+**Plans**: 6 plans
 Plans:
+*(plan 04-06 was added after the first planning pass to cover D-14 through D-18 — custom-field delivery of the AI opening line. It executes in wave 3; plan numbers are not wave order, `wave` in each plan's frontmatter is authoritative.)*
 
 **Wave 1**
 
@@ -128,15 +129,19 @@ Plans:
 **Wave 2** *(blocked on Wave 1)*
 
 - [ ] 04-02-PLAN.md — Shared per-path template editor: merge-field validation, SQLite override persistence, immediate preview re-assembly (D-03-D-06)
-- [ ] 04-03-PLAN.md — Enrollment engine: Apollo bulk_create + add_contact_ids clients, pure reconciliation/outcome logic, status transitions (QUEUE-04)
+- [ ] 04-03-PLAN.md — Enrollment engine: Apollo bulk_create (with typed_custom_fields) + add_contact_ids clients, pure reconciliation/outcome logic, status transitions (QUEUE-04, D-16)
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 04-04-PLAN.md — Approve slice: default-checked selection, confirmation dialog, enrollment handler, per-contact Enrolled/Skipped badges (QUEUE-03, QUEUE-04)
+- [ ] 04-06-PLAN.md — Personalization delivery engine: idempotent AI Opening Line custom field, raw-vs-prefixed field-id guard, contact-update call, created/existing origin split (QUEUE-04, D-14-D-18)
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 04-05-PLAN.md — Live Apollo verification: resolve the 4 sequence/mailbox secrets, one real end-to-end enrollment, reconcile response shapes (QUEUE-03, QUEUE-04)
+- [ ] 04-04-PLAN.md — Approve slice: default-checked selection, confirmation dialog, enrollment handler with opening-line delivery + D-17 follow-up, per-contact Enrolled/Skipped badges (QUEUE-03, QUEUE-04)
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 04-05-PLAN.md — Live Apollo verification: resolve the 4 sequence/mailbox secrets, one-time merge-tag setup in all 3 sequences, one real end-to-end enrollment with verified personalization, reconcile response shapes (QUEUE-03, QUEUE-04)
 **UI hint**: yes
 
 ### Phase 5: Analytics Dashboard
@@ -164,5 +169,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
 | 3. AI Personalization | 4/4 | Complete   | 2026-09-17 |
-| 4. Review Queue and Sequence Enrollment | 0/5 | Planned     | - |
+| 4. Review Queue and Sequence Enrollment | 0/6 | Planned     | - |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
