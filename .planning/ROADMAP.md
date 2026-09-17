@@ -93,7 +93,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — anthropic dependency pin + ANTHROPIC_API_KEY boot gate + Wave 0 RED test harness (PERS-01)
+- [x] 03-01-PLAN.md — anthropic dependency pin + ANTHROPIC_API_KEY boot gate + Wave 0 RED test harness (PERS-01)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -145,6 +145,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
-| 3. AI Personalization | 0/4 | Planned | - |
+| 3. AI Personalization | 1/4 | In Progress|  |
 | 4. Review Queue and Sequence Enrollment | 0/TBD | Not started | - |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
