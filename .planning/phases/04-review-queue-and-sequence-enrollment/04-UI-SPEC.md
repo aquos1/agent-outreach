@@ -79,12 +79,12 @@ Inherited unchanged from `01-UI-SPEC.md` / `02-UI-SPEC.md`:
 |------|-------|-------|
 | Dominant (60%) | #FFFFFF | Page background, main content area |
 | Secondary (30%) | #F0F2F6 | `st.container(border=True)`-style chrome on the template editor block; `st.expander`/`st.code` background (Streamlit-managed) |
-| Accent (10%) | #2563EB | Reserved exclusively for: the "Save Template" button, the "Approve All" button, and the `st.dialog`'s "Confirm" button (all `type="primary"`) |
+| Accent (10%) | #2563EB | Reserved exclusively for: the "Save Template" button, the "Approve All" button, and the `st.dialog`'s "Confirm Enrollment" button (all `type="primary"`) |
 | Destructive | #DC2626 | Not used this phase. See rationale below — the irreversible-send risk (D-09) is mitigated via the confirmation dialog gate, not via red button styling. |
 
-Accent reserved for: **"Save Template"** (commits an edited shared template — D-03/D-06), **"Approve All"** (the headline bulk-enrollment action — ROADMAP success criterion 2), and the confirmation dialog's **"Confirm"** button (the actual irreversible trigger). "Approve Selected" is intentionally **not** accent-colored (`type="secondary"`, default styling) — both buttons perform the same class of action per QUEUE-03, but Streamlit's own convention (already used across Phases 1–2 for sequential-but-distinct CTAs) reserves the accent for one headline action per interaction group to avoid diluting the 10% accent budget; "Approve All" is the more common path (matches the roadmap's own framing: "a single 'Approve All' button") so it carries the accent. Do not apply accent to the path selector, template subject/text-area fields, or the per-row checkboxes — those remain neutral/default-styled Streamlit widgets.
+Accent reserved for: **"Save Template"** (commits an edited shared template — D-03/D-06), **"Approve All"** (the headline bulk-enrollment action — ROADMAP success criterion 2), and the confirmation dialog's **"Confirm Enrollment"** button (the actual irreversible trigger). "Approve Selected" is intentionally **not** accent-colored (`type="secondary"`, default styling) — both buttons perform the same class of action per QUEUE-03, but Streamlit's own convention (already used across Phases 1–2 for sequential-but-distinct CTAs) reserves the accent for one headline action per interaction group to avoid diluting the 10% accent budget; "Approve All" is the more common path (matches the roadmap's own framing: "a single 'Approve All' button") so it carries the accent. **"Approve All" is this page's primary visual anchor and terminal action** — every other element on the page (path selector, template editor, per-row checkboxes, "Approve Selected") exists to prepare the queue for this single accent-colored button. Do not apply accent to the path selector, template subject/text-area fields, or the per-row checkboxes — those remain neutral/default-styled Streamlit widgets.
 
-**On the Destructive token (#DC2626) — deliberately not introduced this phase:** Phase 2's UI-SPEC flagged "the first true destructive action (bulk sequence enrollment) remains Phase 4." Having now designed this phase's flow, the decision is: enrollment is *irreversible* (real emails send) but is not a *destructive-delete* in the traditional red-button sense — nothing is removed or lost, and D-09's confirmation dialog is the safety mechanism, not a red warning color. Using `type="primary"` (accent blue) for the dialog's Confirm button, exactly as RESEARCH.md's Pattern 3 code example shows, keeps the interaction consistent with every other "commit" action in this app. The destructive-red token remains reserved for a future genuinely destructive action (e.g., a delete/undo operation), none of which exist in v1.
+**On the Destructive token (#DC2626) — deliberately not introduced this phase:** Phase 2's UI-SPEC flagged "the first true destructive action (bulk sequence enrollment) remains Phase 4." Having now designed this phase's flow, the decision is: enrollment is *irreversible* (real emails send) but is not a *destructive-delete* in the traditional red-button sense — nothing is removed or lost, and D-09's confirmation dialog is the safety mechanism, not a red warning color. Using `type="primary"` (accent blue) for the dialog's Confirm Enrollment button, exactly as RESEARCH.md's Pattern 3 code example shows, keeps the interaction consistent with every other "commit" action in this app. The destructive-red token remains reserved for a future genuinely destructive action (e.g., a delete/undo operation), none of which exist in v1.
 
 **Status/semantic colors** — extends the Phase 1–3 system with `st.badge`'s native color palette for this phase's new per-contact outcome states:
 
@@ -110,6 +110,8 @@ This is the core interaction contract for Phase 4 — the executor should treat 
 6. **Queue section** (D-10, D-11, D-12) — see dedicated contract below.
 7. **Approve action row** (D-09) — see dedicated contract below.
 
+**Focal point:** "Approve All" (accent-colored, `type="primary"`) is the page's primary visual anchor and terminal action — the eye should land on it last, after the path selector, template editor, and queue table have all been scanned. Every other control on the page exists to get the teammate to this button.
+
 | Stage | State | Trigger / Condition | Blocking Behavior | Visual Treatment |
 |-------|-------|----------------------|--------------------|--------------------|
 | Page load | Queue populated | ≥1 prospect at `status='drafted'` for the selected path | None | Table renders per D-10/D-12 below |
@@ -117,12 +119,12 @@ This is the core interaction contract for Phase 4 — the executor should treat 
 | Path switch | Selector changed | Teammate picks a different path from the selector | Template editor and queue table both re-render for the newly selected path; any unsaved template edits in the previous path's text area are discarded (no cross-path draft state) | Full section re-render, same as Discovery page's pattern of re-running fresh on input change |
 | Template save | Validating | "Save Template" clicked | Save is blocked; text area remains editable | If invalid: `st.warning` inline, per Copywriting Contract (D-06) |
 | Template save | Success | All 3 merge fields present, save completes | Every currently visible drafted-contact row's preview re-assembles immediately with the new template (D-04) — no stale previews | `st.success` one-line confirmation directly below the "Save Template" button |
-| Approve | Loading (stage 1) | "Confirm" clicked in dialog | Dialog closes; page shows in-progress state, buttons disabled/hidden during the call | `st.spinner("Creating Apollo contacts...")` |
+| Approve | Loading (stage 1) | "Confirm Enrollment" clicked in dialog | Dialog closes; page shows in-progress state, buttons disabled/hidden during the call | `st.spinner("Creating Apollo contacts...")` |
 | Approve | Loading (stage 2) | Contact creation succeeded, enrollment call in flight | Same as above | `st.spinner("Enrolling contacts in the {Path} sequence...")` |
 | Approve | Per-contact mixed outcome | `add_contact_ids` response returns some Enrolled, some Skipped (D-07/D-08) | Batch does not block on partial failure; page reruns with updated per-row state | Enrolled rows: checkbox replaced with green `st.badge` (D-12). Skipped rows: checkbox remains (still selectable for retry) + orange `st.badge` with Apollo's stated reason appended inline |
 | Approve | Batch call hard failure | Contact-creation or enrollment API call itself fails (network/401/403/429 — not a per-contact skip) | No rows change status; entire selected batch remains `status='drafted'`, fully retryable | `st.error`, icon `:material/cancel:`, exact copy per Copywriting Contract |
 | Approve | Confirmation gate | "Approve Selected" or "Approve All" clicked, before any API call fires | Nothing changes on the page yet — waiting on dialog response | `st.dialog("Confirm enrollment")` per D-09, small width (Streamlit default), exact copy per Copywriting Contract |
-| Approve | Cancelled | "Cancel" clicked in dialog | No API call fires, dialog closes, queue unchanged | Dialog dismisses, page reruns to the pre-dialog state |
+| Approve | Kept in queue (dismissed) | "Keep in Queue" clicked in dialog | No API call fires, dialog closes, queue unchanged | Dialog dismisses, page reruns to the pre-dialog state |
 
 Icon assignments (extends the Phase 1–3 Material Symbols table):
 - Template editor section header → `:material/edit_note:`
@@ -174,7 +176,7 @@ Icon assignments (extends the Phase 1–3 Material Symbols table):
 | Selected count | Both buttons' labels should reflect a live count where practical, e.g. "Approve Selected (N)" / "Approve All (M)" — exact counts sourced from checkbox state / total drafted rows |
 | Confirmation gate (D-09) | `st.dialog("Confirm enrollment")` fires before any API call, for **both** buttons — no immediate-fire exception (this is a deliberate departure from Discovery's immediate-fire Find/Enrich buttons, justified by irreversibility) |
 | Dialog copy | `"Enroll {N} contact{s} into the {Path Label} sequence?"` — exact wording locked by D-09 |
-| Dialog buttons | `st.columns(2)`: "Confirm" (`type="primary"`, fires the approval, then `st.rerun()`) and "Cancel" (`type="secondary"`, dismisses with no side effects, then `st.rerun()`) |
+| Dialog buttons | `st.columns(2)`: "Confirm Enrollment" (`type="primary"`, fires the approval, then `st.rerun()`) and "Keep in Queue" (`type="secondary"`, dismisses with no side effects, then `st.rerun()`) — "Keep in Queue" ties the dismiss action to the specific consequence being avoided (leaving the contacts un-enrolled and still editable), consistent with D-09's rationale that this gate exists because enrollment sends real, irreversible emails |
 | Confirmed outcome (D-07) | Only contact IDs present in Apollo's `add_contact_ids` response `contacts[]` array are marked Enrolled. Every other submitted contact is marked Skipped with Apollo's stated reason — an HTTP 200 alone is never sufficient |
 | Partial failure (D-08) | Does not block the rest of the batch; every contact's actual per-row outcome renders after the call completes, per the Queue Table Contract above |
 
@@ -202,8 +204,8 @@ Icon assignments (extends the Phase 1–3 Material Symbols table):
 | Approve All button | "Approve All ({M})" |
 | Confirmation dialog title | "Confirm enrollment" |
 | Confirmation dialog body (D-09, exact wording locked) | "Enroll {N} contact{s} into the {Path} sequence?" |
-| Confirmation dialog Confirm button | "Confirm" |
-| Confirmation dialog Cancel button | "Cancel" |
+| Confirmation dialog Confirm button | "Confirm Enrollment" |
+| Confirmation dialog dismiss button | "Keep in Queue" |
 | Loading — contact creation | "Creating Apollo contacts..." |
 | Loading — sequence enrollment | "Enrolling contacts in the {Path} sequence..." |
 | Enrolled badge | "Enrolled" |
@@ -213,7 +215,7 @@ Icon assignments (extends the Phase 1–3 Material Symbols table):
 | Batch failure — missing/invalid param (422) | "Apollo couldn't complete enrollment — {response.json()['message']}" (surface Apollo's own message directly per CLAUDE.md's error-handling rule) |
 | Batch failure — rate limit (429, retries exhausted) | "Apollo is rate-limiting enrollment requests right now — please wait a moment and try again." |
 | Batch failure — network/unexpected | "Enrollment failed — check your internet connection and try again. No contacts were changed." |
-| Destructive confirmation | **Enrollment is the destructive-equivalent action this phase** (irreversible — real emails send): "Approve Selected"/"Approve All" → gated by the `st.dialog` Confirm/Cancel flow above (D-09). No literal delete/remove actions exist in this phase. |
+| Destructive confirmation | **Enrollment is the destructive-equivalent action this phase** (irreversible — real emails send): "Approve Selected"/"Approve All" → gated by the `st.dialog` Confirm Enrollment / Keep in Queue flow above (D-09). No literal delete/remove actions exist in this phase. |
 
 ---
 
