@@ -35,7 +35,7 @@ key-decisions:
 patterns-established:
   - "Grounding prompt keeps the prohibition list free of the literal category names it's excluding, when a test asserts those literal words must never reach the model."
 
-requirements-completed: [PERS-01]
+requirements-completed: []  # PERS-01 is a multi-plan requirement (per 03-01-SUMMARY.md); this plan lands the generator+templates logic only. Full completion happens after 03-03 (persistence) and 03-04 (Discovery page wiring).
 
 # Metrics
 duration: 25min
