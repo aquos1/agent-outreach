@@ -310,7 +310,7 @@ if find_result is not None:
                     st.error(draft_result["error"], icon=":material/cancel:")
                 else:
                     st.divider()
-                    st.subheader("Email Drafts", icon=":material/drafts:")
+                    st.subheader("Email Drafts")
                     for draft in draft_result["rows"]:
                         with st.expander(
                             f"View draft — {draft['name']} ({draft['company']})",
