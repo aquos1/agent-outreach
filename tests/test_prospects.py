@@ -116,3 +116,64 @@ def test_insert_enriched_writes_enriched_status(tmp_db_path):
         assert apollo_person_id
         assert company_domain
         assert path == "club_sponsorship"
+
+
+def test_update_draft_writes_status_drafted(tmp_db_path):
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+
+    from db.prospects import insert_enriched, update_draft
+
+    rows = [
+        {
+            "id": "apollo-1",
+            "name": "Jamie Smith",
+            "organization_name": "Acme Co",
+            "email": "jamie@acme.com",
+        },
+        {
+            "id": "apollo-2",
+            "name": "Robin Lee",
+            "organization_name": "Newcorp",
+            "email": "robin@newcorp.com",
+        },
+    ]
+    insert_enriched(rows, path="club_sponsorship", db_path=tmp_db_path)
+
+    update_draft(
+        "apollo-1",
+        "A grounded opener.",
+        "ai",
+        first_name="Jamie",
+        db_path=tmp_db_path,
+    )
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT opening_line, draft_source, first_name, status "
+            "FROM prospect WHERE apollo_person_id = ?",
+            ("apollo-1",),
+        )
+        opening_line, draft_source, first_name, status = cur.fetchone()
+
+        cur.execute(
+            "SELECT opening_line, draft_source, first_name, status "
+            "FROM prospect WHERE apollo_person_id = ?",
+            ("apollo-2",),
+        )
+        untouched = cur.fetchone()
+    finally:
+        conn.close()
+
+    assert opening_line == "A grounded opener."
+    assert draft_source == "ai"
+    assert first_name == "Jamie"
+    assert status == "drafted"
+
+    untouched_opening_line, untouched_draft_source, untouched_first_name, untouched_status = untouched
+    assert untouched_opening_line is None
+    assert untouched_draft_source is None
+    assert untouched_status == "enriched"
