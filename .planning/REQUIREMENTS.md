@@ -20,7 +20,7 @@
 
 ### Personalization
 
-- [ ] **PERS-01**: Agent generates one AI-written personalized opening line per contact using Claude Haiku, seeded with Apollo's returned title, company, industry, and seniority fields
+- [ ] **PERS-01**: Agent generates one AI-written personalized opening line per contact using Claude Haiku, seeded with Apollo's returned title and company fields only (industry/seniority explicitly excluded per D-06 hallucination-risk mitigation, locked in Phase 3 discuss-phase)
 - [ ] **PERS-01**: Agent assembles the full email draft: AI opening line + path-specific template body
 
 ### Review Queue

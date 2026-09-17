@@ -475,17 +475,17 @@ Nothing deprecated/outdated to flag — `claude-haiku-4-5-20251001` is Anthropic
 
 **None of the above are compliance, security, or retention-policy claims** — all four are implementation-detail heuristics explicitly flagged for adjustment if real data or real latency contradicts them.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does Apollo ever return a title value that looks plausible but is stale/wrong (not blank/placeholder), which D-07's fallback trigger wouldn't catch?**
    - What we know: D-07 explicitly scopes the fallback trigger to "missing, null, or placeholder-looking" only — a present-but-inaccurate title is out of scope by design (CONTEXT.md's own explicit decision, not a gap this research introduces).
    - What's unclear: How often Apollo's title data is stale in practice (a title from months/years ago) is unknown and unmeasurable from this research session.
-   - Recommendation: Accept as designed per D-07 — this is a data-quality question about Apollo itself, not a Phase 3 implementation gap. No action needed beyond what CONTEXT.md already decided.
+   - RESOLVED: Accept as designed per D-07 — this is a data-quality question about Apollo itself, not a Phase 3 implementation gap. No action needed beyond what CONTEXT.md already decided.
 
 2. **Exact numeric threshold for D-16's batch-failure banner**
    - What we know: CONTEXT.md explicitly defers this to planner/implementer discretion, suggesting >50% as an example.
    - What's unclear: No usage data exists yet to calibrate a more precise threshold.
-   - Recommendation: Use `> 0.5` (a strict majority) as the default, exactly as CONTEXT.md's own example suggests — it's an unambiguous, easy-to-reason-about threshold and matches the "high fraction" framing in D-16's banner copy.
+   - RESOLVED: Use `> 0.5` (a strict majority) as the default, exactly as CONTEXT.md's own example suggests — it's an unambiguous, easy-to-reason-about threshold and matches the "high fraction" framing in D-16's banner copy. Implemented as `FALLBACK_BANNER_THRESHOLD = 0.5` in `personalization/generator.py` (plan 03-02).
 
 ## Environment Availability
 
