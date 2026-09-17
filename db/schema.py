@@ -3,7 +3,9 @@
 ensure_schema() creates the prospect, email_events, and free_email_domains
 tables (if they don't already exist), seeds the free-email-domain exclusion
 list, and can be called on every app boot without raising on a pre-existing
-database file.
+database file. It also applies additive column migrations to an existing
+prospect table (opening_line, first_name, draft_source for D-04 draft
+persistence), keeping the idempotent-boot guarantee intact.
 """
 from __future__ import annotations
 
@@ -69,6 +71,32 @@ FROM prospect p
 WHERE p.apollo_contact_id IS NOT NULL;   -- only rows that reached "contact_created" or later
 """
 
+# Additive column migration for D-04 draft persistence. CREATE TABLE IF NOT
+# EXISTS above is a no-op against an already-populated prospect table, so
+# these columns must be added retroactively via ALTER TABLE (RESEARCH.md
+# Pitfall 1). Column names/types are hardcoded here only — never interpolate
+# a caller-supplied or Apollo-derived value into DDL.
+_NEW_COLUMNS = [
+    ("opening_line", "TEXT"),
+    ("first_name", "TEXT"),
+    ("draft_source", "TEXT"),  # 'ai' | 'fallback'
+]
+
+
+def _migrate_columns(conn: sqlite3.Connection) -> None:
+    """Add any missing prospect columns from _NEW_COLUMNS, idempotently.
+
+    Each ALTER TABLE is wrapped so the already-exists OperationalError (the
+    column was added on a prior boot) is swallowed; any other error is
+    re-raised.
+    """
+    for name, coltype in _NEW_COLUMNS:
+        try:
+            conn.execute(f"ALTER TABLE prospect ADD COLUMN {name} {coltype}")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" not in str(e):
+                raise
+
 
 def ensure_schema(db_path: str = "db/outreach.db") -> None:
     """Create the dedup registry schema if it does not already exist.
@@ -85,6 +113,7 @@ def ensure_schema(db_path: str = "db/outreach.db") -> None:
     try:
         conn.executescript(DDL)
         conn.executescript(VIEW_DDL)
+        _migrate_columns(conn)
         conn.commit()
     finally:
         conn.close()
