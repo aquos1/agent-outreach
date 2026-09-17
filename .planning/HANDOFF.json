@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-09-17T07:03:06.877Z",
+  "phase": "03",
+  "phase_name": "ai-personalization",
+  "phase_dir": ".planning/phases/03-ai-personalization",
+  "plan": 4,
+  "task": 2,
+  "total_tasks": 2,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Chain draft generation into Enrich & Continue and render Email Drafts section", "status": "done", "commit": "717b836"},
+    {"id": "1a", "name": "Fix: drop unsupported icon kwarg from st.subheader (pinned Streamlit 1.59.2 doesn't support it)", "status": "done", "commit": "0aaa304"},
+    {"id": "1b", "name": "Fix: make opening-line generation path-aware (client_sourcing was using sponsorship-style learn-from-you framing)", "status": "done", "commit": "ea6c904"},
+    {"id": 2, "name": "Human verification — no-hallucination sample review and draft rendering click-through", "status": "in_progress", "progress": "App rendering confirmed clean (no traceback) across two rounds of live testing by the developer. Path-aware framing fix verified structurally (24/24 tests pass, prompt-injection test added) but NOT yet verified against real AI output — every live call is currently hitting Anthropic 400 'credit balance too low', so all drafts are using the generic D-14 fallback opener, not real Haiku output. The actual no-hallucination sample review (the checkpoint's core purpose) cannot happen until the account has credits."}
+  ],
+  "remaining_tasks": [
+    {"id": 2, "name": "Developer adds Anthropic credits, re-runs Enrich & Continue, samples >=5 real AI opening lines across all 3 paths (especially client_sourcing) for hallucination, confirms draft rendering, runs the sqlite spot-check, then replies 'approved' or lists issues", "status": "not_started"},
+    {"id": 3, "name": "Create 03-04-SUMMARY.md (with User Setup Required section flagging [SPONSORSHIP_LINK] placeholder per D-11) and update STATE.md/ROADMAP.md/REQUIREMENTS.md once Task 2 is approved", "status": "not_started"}
+  ],
+  "blockers": [
+    {
+      "description": "Anthropic account credit balance too low — every live personalization call returns HTTP 400 'Your credit balance is too low to access the Anthropic API', confirmed by calling generate_opening_line() directly with the real secrets.toml key outside the app. This is correctly triggering the D-14 fallback path (generic opener, warning banner, no crash) rather than a code bug, but it blocks the checkpoint's actual purpose.",
+      "type": "human_action",
+      "workaround": "None — fallback works but the critical no-hallucination sample review needs real AI output"
+    }
+  ],
+  "human_actions_pending": [
+    {"action": "Add credits at console.anthropic.com -> Plans & Billing", "context": "Required before any real (non-fallback) opening line can be generated for the checkpoint's no-hallucination review", "blocking": true},
+    {"action": "Re-run Enrich & Continue on all 3 paths and sample >=5 real opening lines per the plan's <how-to-verify> steps, then reply 'approved' or paste specific issues", "context": "This is the sole coverage for Phase 3 success criteria 1 and 2 per 03-VALIDATION.md's Manual-Only Verifications table", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "Ran plan 03-04's executor on the main working tree, not in worktree isolation", "rationale": "Task 2's blocking human-verify checkpoint needs a real streamlit run against .streamlit/secrets.toml, which is gitignored/untracked and would not exist in an isolated worktree checkout", "phase": "03"},
+    {"decision": "Dropped the icon kwarg from st.subheader instead of upgrading Streamlit", "rationale": "Project pins streamlit==1.59.2 (requirements.txt); icon support on header/subheader/title was added in a later release than what's pinned. Minimal fix over a version bump.", "phase": "03"},
+    {"decision": "Added path_slug parameter threaded through generate_opening_line/build_opening_line with a PATH_FRAMING instruction map, rather than changing D-06's grounding-field scope", "rationale": "The bug was missing business-framing instruction (not a new fact about the contact), so it doesn't reopen the hallucination-risk surface D-06 was designed to close", "phase": "03"}
+  ],
+  "uncommitted_files": [".planning/STATE.md", ".planning/config.json"],
+  "next_action": "User must add Anthropic API credits, then reply here to resume live verification of plan 03-04's Task 2 checkpoint at http://localhost:8501 (streamlit already running in background, PID 2683)",
+  "context_notes": "Phase 3 (AI Personalization) is down to its last plan (03-04) and its last task (Task 2, a blocking human-verify checkpoint). Plans 03-01/02/03 are fully complete with SUMMARY.md files. 03-04's Task 1 (auto) is done and committed, plus two follow-up fix commits discovered live during the checkpoint attempt (Streamlit version-incompatible icon kwarg, then a path-blind opening-line prompt that produced nonsensical framing for client_sourcing). Both fixes are verified structurally (full pytest suite green, 24/24) but the checkpoint's actual human-judgment purpose -- sampling real AI opening lines for hallucination -- is blocked purely on Anthropic account billing, not code. Once credits are added, resume by asking the user to refresh http://localhost:8501, walk the plan's <how-to-verify> steps (in 03-04-PLAN.md Task 2), and reply 'approved' or specific issues. On approval, a continuation agent should NOT redo verification -- just create 03-04-SUMMARY.md, update STATE.md/ROADMAP.md/REQUIREMENTS.md (PERS-01 completes across 03-02/03-03/03-04), and make the final docs commit, per the original executor's last handback."
+}
