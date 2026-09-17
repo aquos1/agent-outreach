@@ -46,6 +46,39 @@ _PLACEHOLDER_TITLES = {"", "n/a", "na", "unknown", "-", "none", "tbd"}
 # planner; RESEARCH.md Open Question 2 recommends 0.5. Planner-set, tunable.
 FALLBACK_BANNER_THRESHOLD = 0.5
 
+# Path-specific framing instruction, injected alongside the <contact> tags.
+# This is NOT a D-06 grounding-scope change -- it never adds a fact about the
+# contact beyond title/company. It's a fixed instruction about the email's
+# business purpose, which the generic SYSTEM_PROMPT has no way to know: the
+# sponsorship paths ask the company for support, while client_sourcing offers
+# the company free help -- the opposite direction. Without this, Haiku
+# defaults to a "we'd love to learn about your approach" framing regardless
+# of path, which reads as nonsensical for client_sourcing (the org is
+# offering to solve a problem FOR the company, not asking to learn from it).
+PATH_FRAMING = {
+    "club_sponsorship": (
+        "This email asks the company to become an annual sponsor, offering "
+        "recruiting access and brand visibility in return. Write the opener "
+        "with genuine interest in their work as a natural hook."
+    ),
+    "productthon": (
+        "This email asks the company to sponsor a one-day student "
+        "product-thon, offering recruiting access and brand visibility in "
+        "return. Write the opener with genuine interest in their work as a "
+        "natural hook."
+    ),
+    "client_sourcing": (
+        "This email offers the company a free student consulting team to "
+        "help ship one of THEIR OWN internal product initiatives -- the "
+        "organization is offering to help them, not asking to learn from "
+        "them or be mentored by them. Do not frame the opener around "
+        "wanting to learn about their approach, philosophy, or work. "
+        "Instead, use their title and company only as a natural hook for "
+        "why they would be the right person to talk to about a project "
+        "like this -- never invent or guess what that initiative might be."
+    ),
+}
+
 
 def make_client(api_key: str) -> anthropic.Anthropic:
     """Construct the Anthropic client once, with D-15/Pitfall-3 overrides.
@@ -73,14 +106,24 @@ def _is_sparse_title(title: str | None) -> bool:
     return title.strip().lower() in _PLACEHOLDER_TITLES
 
 
-def generate_opening_line(client, title: str, company: str) -> tuple[str | None, str]:
+def generate_opening_line(
+    client, title: str, company: str, path_slug: str
+) -> tuple[str | None, str]:
     """Call Claude Haiku for one grounded opening sentence. Never raises.
 
     Sends ONLY title and company inside <contact> tags -- no industry,
-    seniority, or any other field (D-06). Returns (line_or_None, message);
-    the caller applies the D-07/D-14 fallback on a None line.
+    seniority, or any other field (D-06). `path_slug` selects a fixed
+    business-framing instruction (PATH_FRAMING) describing the email's
+    actual ask for that path -- this is not a new fact about the contact,
+    so it does not reopen D-06's grounding-scope restriction. Returns
+    (line_or_None, message); the caller applies the D-07/D-14 fallback on a
+    None line.
     """
-    user_prompt = f"<contact><title>{title}</title><company>{company}</company></contact>"
+    framing = PATH_FRAMING.get(path_slug, PATH_FRAMING["club_sponsorship"])
+    user_prompt = (
+        f"<contact><title>{title}</title><company>{company}</company></contact>\n"
+        f"<framing>{framing}</framing>"
+    )
     try:
         message = client.messages.create(
             model=MODEL,
@@ -103,16 +146,20 @@ def generate_opening_line(client, title: str, company: str) -> tuple[str | None,
     return line, "OK"
 
 
-def build_opening_line(client, title: str | None, company: str) -> tuple[str, str]:
+def build_opening_line(
+    client, title: str | None, company: str, path_slug: str
+) -> tuple[str, str]:
     """Single decision point both fallback triggers flow through.
 
     D-07 (sparse title) and D-14 (API failure) share one fallback path.
-    Returns (opening_line, "ai" | "fallback"). Never raises.
+    `path_slug` is threaded through to generate_opening_line so the prompt
+    carries the correct business-framing instruction for this path (see
+    PATH_FRAMING). Returns (opening_line, "ai" | "fallback"). Never raises.
     """
     if _is_sparse_title(title):
         return FALLBACK_LINE.format(company=company), "fallback"
 
-    line, _message = generate_opening_line(client, title, company)
+    line, _message = generate_opening_line(client, title, company, path_slug)
     if line is None:
         return FALLBACK_LINE.format(company=company), "fallback"
     return line, "ai"

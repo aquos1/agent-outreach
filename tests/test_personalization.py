@@ -52,7 +52,12 @@ def test_prompt_excludes_industry_and_seniority(mock_anthropic_message):
     fake_messages = _FakeMessagesRecorder(response)
     fake_client = _FakeClient(fake_messages)
 
-    generate_opening_line(fake_client, title="Head of Partnerships", company="Acme Corp")
+    generate_opening_line(
+        fake_client,
+        title="Head of Partnerships",
+        company="Acme Corp",
+        path_slug="club_sponsorship",
+    )
 
     kwargs = fake_messages.last_kwargs
     assert kwargs is not None
@@ -82,7 +87,9 @@ def test_sparse_title_triggers_fallback():
     fake_client = _FakeClient(fake_messages)
 
     for title in (None, "", "   ", "N/A", "unknown", "-"):
-        line, source = build_opening_line(fake_client, title, company="Acme Corp")
+        line, source = build_opening_line(
+            fake_client, title, company="Acme Corp", path_slug="club_sponsorship"
+        )
         assert source == "fallback"
         assert isinstance(line, str) and line
         assert "Acme Corp" in line
@@ -122,7 +129,10 @@ def test_api_failure_triggers_fallback():
         fake_client = _FakeClient(fake_messages)
 
         line, source = build_opening_line(
-            fake_client, title="Head of Partnerships", company="Acme Corp"
+            fake_client,
+            title="Head of Partnerships",
+            company="Acme Corp",
+            path_slug="club_sponsorship",
         )
 
         assert source == "fallback"
@@ -136,7 +146,12 @@ def test_generate_opening_line_strips_quotes_and_whitespace(mock_anthropic_messa
     fake_messages = _FakeMessagesRecorder(response)
     fake_client = _FakeClient(fake_messages)
 
-    line, message = generate_opening_line(fake_client, title="Head of Partnerships", company="Acme Corp")
+    line, message = generate_opening_line(
+        fake_client,
+        title="Head of Partnerships",
+        company="Acme Corp",
+        path_slug="club_sponsorship",
+    )
 
     assert line is not None
     assert not line.startswith('"')
@@ -148,10 +163,66 @@ def test_generate_opening_line_strips_quotes_and_whitespace(mock_anthropic_messa
     fake_client_ws = _FakeClient(fake_messages_ws)
 
     empty_line, empty_message = generate_opening_line(
-        fake_client_ws, title="Head of Partnerships", company="Acme Corp"
+        fake_client_ws,
+        title="Head of Partnerships",
+        company="Acme Corp",
+        path_slug="club_sponsorship",
     )
     assert empty_line is None
     assert isinstance(empty_message, str) and empty_message
+
+
+def test_client_sourcing_framing_reaches_prompt(mock_anthropic_message):
+    """The client_sourcing path must pitch the org offering to help the
+    company, never a "we want to learn from you" framing -- that framing is
+    nonsensical for client_sourcing's actual ask (a free consulting team
+    solving a problem FOR the company, not the org asking to be mentored).
+    Asserts the right instruction reached the prompt sent to the model --
+    not a specific model output, which can't be asserted deterministically.
+    """
+    from personalization.generator import PATH_FRAMING, generate_opening_line
+
+    response = mock_anthropic_message("A grounded opener.")
+    fake_messages = _FakeMessagesRecorder(response)
+    fake_client = _FakeClient(fake_messages)
+
+    generate_opening_line(
+        fake_client,
+        title="Head of Partnerships",
+        company="Acme Corp",
+        path_slug="client_sourcing",
+    )
+
+    kwargs = fake_messages.last_kwargs
+    assert kwargs is not None
+    system_text = kwargs.get("system", "")
+    user_text = "".join(
+        block.get("content", "") if isinstance(block, dict) else str(block)
+        for block in kwargs.get("messages", [])
+    )
+    combined = system_text + user_text
+
+    assert PATH_FRAMING["client_sourcing"] in combined
+    assert "offering to help" in combined.lower() or "help them" in combined.lower()
+    assert "learn about their approach" in combined.lower()  # the negative instruction is present...
+    assert "do not frame" in combined.lower()  # ...as an explicit prohibition, not a suggestion
+
+    # Different path -> different framing sentence reaches the prompt.
+    fake_messages_club = _FakeMessagesRecorder(mock_anthropic_message("Another opener."))
+    fake_client_club = _FakeClient(fake_messages_club)
+    generate_opening_line(
+        fake_client_club,
+        title="Head of Partnerships",
+        company="Acme Corp",
+        path_slug="club_sponsorship",
+    )
+    club_kwargs = fake_messages_club.last_kwargs
+    club_user_text = "".join(
+        block.get("content", "") if isinstance(block, dict) else str(block)
+        for block in club_kwargs.get("messages", [])
+    )
+    assert PATH_FRAMING["client_sourcing"] not in club_user_text
+    assert PATH_FRAMING["club_sponsorship"] in (club_kwargs.get("system", "") + club_user_text)
 
 
 def test_assemble_email_per_path():

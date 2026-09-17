@@ -211,7 +211,7 @@ if find_result is not None:
                                 first_name = match.get("first_name") or ""
 
                                 opening_line, source = build_opening_line(
-                                    client, title, company
+                                    client, title, company, slug
                                 )
                                 if source == "fallback":
                                     fallback_count += 1
