@@ -20,15 +20,53 @@ def test_ensure_schema_idempotent(tmp_db_path):
         cur = conn.cursor()
         cur.execute(
             "SELECT name FROM sqlite_master WHERE type='table' "
-            "AND name IN ('prospect', 'email_events', 'free_email_domains')"
+            "AND name IN ('prospect', 'email_events', 'free_email_domains', 'template_override')"
         )
         table_names = {row[0] for row in cur.fetchall()}
-        assert table_names == {"prospect", "email_events", "free_email_domains"}
+        assert table_names == {
+            "prospect",
+            "email_events",
+            "free_email_domains",
+            "template_override",
+        }
 
         cur.execute(
             "SELECT name FROM sqlite_master WHERE type='view' AND name='contacted_registry'"
         )
         assert cur.fetchone() is not None
+    finally:
+        conn.close()
+
+
+def test_template_override_roundtrip(tmp_db_path):
+    """template_override rows survive a reconnect, and a second ensure_schema()
+    call neither raises nor drops existing rows (Phase 4 D-05, brand-new table)."""
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        conn.execute(
+            "INSERT INTO template_override (path, subject, body) VALUES (?, ?, ?)",
+            ("club_sponsorship", "S", "B"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Second ensure_schema() call must not raise and must not drop the row.
+    ensure_schema(tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT subject, body FROM template_override WHERE path = ?",
+            ("club_sponsorship",),
+        )
+        row = cur.fetchone()
+        assert row == ("S", "B")
     finally:
         conn.close()
 
@@ -151,7 +189,13 @@ def test_column_migration_idempotent(tmp_db_path):
         cur = conn.cursor()
         cur.execute("PRAGMA table_info(prospect)")
         column_names = {row[1] for row in cur.fetchall()}
-        assert {"opening_line", "first_name", "draft_source"} <= column_names
+        assert {
+            "opening_line",
+            "first_name",
+            "draft_source",
+            "title",
+            "last_name",
+        } <= column_names
 
         cur.execute("SELECT COUNT(*) FROM prospect")
         assert cur.fetchone()[0] == 1
