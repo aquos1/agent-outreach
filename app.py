@@ -47,8 +47,9 @@ if not anthropic_key:
 pages = {
     "Health": [st.Page("pages/health_page.py", title="System Health", default=True)],
     "Discovery": [st.Page("pages/discovery_page.py", title="Contact Discovery")],
-    # Phase 3+ will append remaining real pages here (Personalization, Review
-    # Queue, Campaign Dashboard) once the Apollo health gate passes.
+    "Review Queue": [st.Page("pages/review_queue_page.py", title="Review Queue")],
+    # Phase 4 will append the remaining real page here (Campaign Dashboard)
+    # once the Apollo health gate passes.
 }
 
 pg = st.navigation(pages)
