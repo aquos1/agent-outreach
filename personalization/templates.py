@@ -4,8 +4,15 @@ No network calls, no I/O, static string templates only -- three verbatim
 per-path templates (03-CONTEXT.md `<specifics>`, user-approved) and a pure
 merge-field substitution function. No templating engine (Jinja2, etc.);
 plain str.format only.
+
+D-04/D-05 (Phase 4): assemble_email() also accepts optional override
+subject/body text -- when supplied, the override wins over PATH_TEMPLATES.
+This module still never touches SQLite; db/templates_store.py owns
+persistence and passes the override text in as plain strings.
 """
 from __future__ import annotations
+
+import re
 
 # Keys reuse the exact three slugs already defined in discovery/logic.py's
 # PATH_CONFIG -- not re-invented here.
@@ -136,18 +143,68 @@ PATH_TEMPLATES = {
 }
 
 
+# The complete and only set of merge fields a teammate-edited template may
+# use (D-06). Checked against the combined subject+body text before a save.
+REQUIRED_FIELDS = {"first_name", "company", "opening_line"}
+
+
 def assemble_email(
-    path_slug: str, first_name: str, company: str, opening_line: str
+    path_slug: str,
+    first_name: str,
+    company: str,
+    opening_line: str,
+    subject_template: str | None = None,
+    body_template: str | None = None,
 ) -> tuple[str, str]:
     """Merge the opening line and Apollo fields into a ready-to-send email.
 
     D-09: {opening_line} sits on its own standalone line directly after the
     greeting in every template's body, before the intro paragraph. Pure
     function -- no I/O, no logging.
+
+    D-04/D-05: subject_template/body_template are optional override text
+    (loaded by the caller from db/templates_store.get_template). When
+    either is None, falls back to PATH_TEMPLATES[path_slug] -- the override,
+    when supplied, wins over PATH_TEMPLATES. This module still never touches
+    SQLite. The subject is now formatted with all three merge fields (not
+    just company as before) since a teammate may legitimately put
+    {first_name} or {opening_line} in a subject line.
     """
     template = PATH_TEMPLATES[path_slug]
-    subject = template["subject"].format(company=company)
-    body = template["body"].format(
+    subject = subject_template if subject_template is not None else template["subject"]
+    body = body_template if body_template is not None else template["body"]
+    subject = subject.format(
+        first_name=first_name, company=company, opening_line=opening_line
+    )
+    body = body.format(
         first_name=first_name, company=company, opening_line=opening_line
     )
     return subject, body
+
+
+def validate_template_fields(subject: str, body: str) -> tuple[bool, str]:
+    """Confirm all 3 required merge fields are present, and no others, before
+    a save (D-06). Validation runs over the combined subject+body text -- a
+    field present only in the subject (or only in the body) still counts.
+
+    Pure function -- no I/O. Missing/misspelled placeholders block the save
+    in review_queue_page.py rather than shipping a literal '{first_name}' or
+    a silently generic email to a real contact. An unknown placeholder (e.g.
+    a stray {last_name}) would raise KeyError at assembly time and must
+    never reach a real contact, so it is rejected here too.
+    """
+    present = set(re.findall(r"\{(\w+)\}", f"{subject}\n{body}"))
+    missing = REQUIRED_FIELDS - present
+    if missing:
+        return False, (
+            f"Missing merge field(s): {', '.join(sorted(missing))}. Add them "
+            "back before saving — without them, contacts would receive a "
+            "broken or generic email."
+        )
+    unknown = present - REQUIRED_FIELDS
+    if unknown:
+        return False, (
+            f"Unknown merge field(s): {', '.join(sorted(unknown))}. Only "
+            "{first_name}, {company} and {opening_line} are available."
+        )
+    return True, "OK"
