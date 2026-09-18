@@ -388,3 +388,238 @@ def test_bulk_match_people_batches_of_ten(monkeypatch, mock_requests_response):
         for detail in details:
             assert "id" in detail
             assert detail.get("first_name") or detail.get("organization_name")
+
+
+def test_find_custom_field_id_strips_modality_prefix(monkeypatch, mock_requests_response):
+    """THE REGRESSION GUARD (04-06 D-18): GET /fields prefixes each field's id
+    with its modality ("contact.<hex>"); every typed_custom_fields write key
+    must be the raw unprefixed hex. This pins that the prefix is always
+    stripped before the id is returned to any caller."""
+    from apollo.client import _find_custom_field_id
+
+    body = {
+        "fields": [
+            {
+                "id": "contact.60c39ed82bd02f01154c470a",
+                "label": "AI Opening Line",
+                "modality": "contact",
+                "source": "custom",
+            }
+        ]
+    }
+    monkeypatch.setattr(requests, "get", lambda *a, **k: mock_requests_response(200, body))
+
+    field_id, message = _find_custom_field_id("good-key", "AI Opening Line")
+
+    assert field_id == "60c39ed82bd02f01154c470a"
+    assert "." not in field_id
+    assert not field_id.startswith("contact.")
+    assert message == "OK"
+
+
+def test_find_custom_field_id_not_found(monkeypatch, mock_requests_response):
+    from apollo.client import _find_custom_field_id
+
+    # empty fields list
+    monkeypatch.setattr(
+        requests, "get", lambda *a, **k: mock_requests_response(200, {"fields": []})
+    )
+    field_id, message = _find_custom_field_id("good-key", "AI Opening Line")
+    assert field_id is None
+    assert message == "NOT_FOUND"
+
+    # only non-matching labels
+    monkeypatch.setattr(
+        requests,
+        "get",
+        lambda *a, **k: mock_requests_response(
+            200, {"fields": [{"id": "contact.abc", "label": "Other Field", "modality": "contact"}]}
+        ),
+    )
+    field_id, message = _find_custom_field_id("good-key", "AI Opening Line")
+    assert field_id is None
+    assert message == "NOT_FOUND"
+
+    # matching label but wrong modality
+    monkeypatch.setattr(
+        requests,
+        "get",
+        lambda *a, **k: mock_requests_response(
+            200,
+            {"fields": [{"id": "account.abc", "label": "AI Opening Line", "modality": "account"}]},
+        ),
+    )
+    field_id, message = _find_custom_field_id("good-key", "AI Opening Line")
+    assert field_id is None
+    assert message == "NOT_FOUND"
+
+
+def test_find_custom_field_id_error_codes(monkeypatch, mock_requests_response):
+    from apollo.client import _find_custom_field_id
+
+    for status in (401, 403, 500):
+        monkeypatch.setattr(
+            requests,
+            "get",
+            lambda *a, _status=status, **k: mock_requests_response(_status, {}),
+        )
+        field_id, message = _find_custom_field_id("key", "AI Opening Line")
+        assert field_id is None
+        assert isinstance(message, str) and message
+        assert message != "NOT_FOUND"
+
+    def _raise(*a, **k):
+        raise requests.RequestException("boom")
+
+    monkeypatch.setattr(requests, "get", _raise)
+    field_id, message = _find_custom_field_id("key", "AI Opening Line")
+    assert field_id is None
+    assert isinstance(message, str) and message
+
+
+def test_ensure_custom_field_reuses_existing(monkeypatch, mock_requests_response):
+    from apollo.client import ensure_custom_field
+
+    post_calls = {"count": 0}
+
+    def _fake_get(*a, **k):
+        return mock_requests_response(
+            200,
+            {
+                "fields": [
+                    {"id": "contact.abc123", "label": "AI Opening Line", "modality": "contact"}
+                ]
+            },
+        )
+
+    def _fake_post(*a, **k):
+        post_calls["count"] += 1
+        return mock_requests_response(200, {"typed_custom_fields": [{"id": "should-not-happen"}]})
+
+    monkeypatch.setattr(requests, "get", _fake_get)
+    monkeypatch.setattr(requests, "post", _fake_post)
+
+    field_id, message = ensure_custom_field("good-key")
+
+    assert field_id == "abc123"
+    assert message == "OK"
+    assert post_calls["count"] == 0
+
+
+def test_ensure_custom_field_creates_when_missing(monkeypatch, mock_requests_response):
+    from apollo.client import ensure_custom_field
+
+    captured = {}
+
+    monkeypatch.setattr(
+        requests, "get", lambda *a, **k: mock_requests_response(200, {"fields": []})
+    )
+
+    def _fake_post(url, headers=None, json=None, timeout=None, **kwargs):
+        captured["url"] = url
+        captured["body"] = json
+        return mock_requests_response(200, {"typed_custom_fields": [{"id": "abc123"}]})
+
+    monkeypatch.setattr(requests, "post", _fake_post)
+
+    field_id, message = ensure_custom_field("good-key")
+
+    assert field_id == "abc123"
+    assert message == "OK"
+    assert captured["url"].endswith("/fields")
+    assert captured["body"]["label"] == "AI Opening Line"
+    assert captured["body"]["modality"] == "contact"
+    assert captured["body"]["type"] == "string"
+    assert captured["body"]["meta"] == {"max_length": 500}
+
+
+def test_ensure_custom_field_propagates_lookup_failure(monkeypatch, mock_requests_response):
+    from apollo.client import ensure_custom_field
+
+    monkeypatch.setattr(
+        requests, "get", lambda *a, **k: mock_requests_response(401, {})
+    )
+    post_calls = {"count": 0}
+
+    def _fake_post(*a, **k):
+        post_calls["count"] += 1
+        return mock_requests_response(200, {"typed_custom_fields": [{"id": "abc123"}]})
+
+    monkeypatch.setattr(requests, "post", _fake_post)
+
+    field_id, message = ensure_custom_field("bad-key")
+
+    assert field_id is None
+    assert isinstance(message, str) and message
+    assert post_calls["count"] == 0
+
+
+def test_ensure_custom_field_handles_empty_creation_response(monkeypatch, mock_requests_response):
+    from apollo.client import ensure_custom_field
+
+    monkeypatch.setattr(
+        requests, "get", lambda *a, **k: mock_requests_response(200, {"fields": []})
+    )
+    monkeypatch.setattr(
+        requests,
+        "post",
+        lambda *a, **k: mock_requests_response(200, {"typed_custom_fields": []}),
+    )
+
+    field_id, message = ensure_custom_field("good-key")
+
+    assert field_id is None
+    assert isinstance(message, str) and message
+
+
+def test_update_contact_custom_field_sends_raw_field_id(monkeypatch, mock_requests_response):
+    from apollo.client import update_contact_custom_field
+
+    captured = {}
+
+    def _fake_patch(url, headers=None, json=None, timeout=None, **kwargs):
+        captured["url"] = url
+        captured["body"] = json
+        return mock_requests_response(200, {})
+
+    monkeypatch.setattr(requests, "patch", _fake_patch)
+
+    success, message = update_contact_custom_field(
+        "good-key", "c1", "abc123", "Loved your launch."
+    )
+
+    assert success is True
+    assert message == "OK"
+    assert captured["url"].endswith("/contacts/c1")
+    assert captured["body"] == {"typed_custom_fields": {"abc123": "Loved your launch."}}
+
+
+def test_update_contact_custom_field_error_codes(monkeypatch, mock_requests_response):
+    from apollo.client import update_contact_custom_field
+
+    for status in (401, 403, 429, 500):
+        monkeypatch.setattr(
+            requests,
+            "patch",
+            lambda *a, _status=status, **k: mock_requests_response(_status, {}),
+        )
+        success, message = update_contact_custom_field("key", "c1", "abc123", "Hi.")
+        assert success is False
+        assert isinstance(message, str) and message
+
+    monkeypatch.setattr(
+        requests,
+        "patch",
+        lambda *a, **k: mock_requests_response(422, {"message": "bad"}),
+    )
+    success, message = update_contact_custom_field("key", "c1", "abc123", "Hi.")
+    assert success is False
+    assert "bad" in message
+
+    def _raise(*a, **k):
+        raise requests.RequestException("boom")
+
+    monkeypatch.setattr(requests, "patch", _raise)
+    success, message = update_contact_custom_field("key", "c1", "abc123", "Hi.")
+    assert success is False
+    assert isinstance(message, str) and message
