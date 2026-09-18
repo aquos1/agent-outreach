@@ -5,6 +5,12 @@ sqlite3.connect() per call, wrapped in try/finally so the connection always
 closes. All SQL uses `?` placeholders exclusively — never f-string/`.format`/
 `%` interpolation of Apollo-derived or user free-text values into SQL
 (Phase 1 Security Domain rule, T-02-01).
+
+Phase 4 adds get_drafted_by_path() (the Review Queue's QUEUE-01 source query)
+and the two enrollment-engine status transitions, mark_contact_created() and
+mark_sequenced() — both must be called only for prospects review/logic.py's
+split_enrollment_outcome() confirms Apollo actually enrolled (D-07/D-08); see
+each function's own docstring for the exact call-order rule.
 """
 from __future__ import annotations
 
@@ -206,3 +212,57 @@ def get_drafted_by_path(
         conn.close()
 
     return [dict(zip(columns, row)) for row in rows]
+
+
+def mark_contact_created(
+    prospect_id: int, apollo_contact_id: str, db_path: str = "db/outreach.db"
+) -> None:
+    """Record a newly-created (or matched-existing) Apollo contact id and
+    advance the prospect to status='contact_created'.
+
+    Writing apollo_contact_id here is what adds the row to
+    contacted_registry — the view filters on apollo_contact_id IS NOT NULL —
+    satisfying the phase's dedup-registry success criterion. Keys on the
+    internal `id` primary key (not apollo_person_id) because the caller
+    already holds the internal id from map_created_contacts.
+
+    CALL-ORDER RULE (D-08): invoke this ONLY for prospects that
+    split_enrollment_outcome confirmed as enrolled, never for the whole
+    submitted batch. Advancing a skipped contact past 'drafted' would drop it
+    out of get_drafted_by_path (breaking the retry guarantee) and would
+    wrongly add an un-contacted person to the dedup registry.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE prospect SET "
+            "apollo_contact_id = ?, status = 'contact_created', "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (apollo_contact_id, prospect_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_sequenced(prospect_id: int, db_path: str = "db/outreach.db") -> None:
+    """Advance a prospect to status='sequenced' after confirmed Apollo enrollment.
+
+    CALLERS MAY ONLY INVOKE THIS for prospect ids returned in
+    split_enrollment_outcome's enrolled list — NEVER in a blanket loop over
+    everything submitted in a batch. Calling this for a skipped contact
+    silently removes it from the retryable `status='drafted'` queue,
+    violating D-08 (04-RESEARCH.md Pitfall 5).
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE prospect SET status = 'sequenced', "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (prospect_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
