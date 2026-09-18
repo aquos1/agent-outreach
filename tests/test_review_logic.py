@@ -217,3 +217,81 @@ def test_split_enrollment_outcome_tolerates_list_skipped():
     prospect_id, reason = skipped[0]
     assert prospect_id == 1
     assert isinstance(reason, str) and reason
+
+
+def test_split_contacts_by_origin_separates_arrays():
+    from review.logic import split_contacts_by_origin
+
+    response = {
+        "created_contacts": [{"id": "c1", "email": "a@x.com"}],
+        "existing_contacts": [{"id": "c2", "email": "b@x.com"}],
+    }
+    rows = [{"id": 1, "email": "a@x.com"}, {"id": 2, "email": "b@x.com"}]
+
+    created_map, existing_map = split_contacts_by_origin(response, rows)
+
+    assert created_map == {1: "c1"}
+    assert existing_map == {2: "c2"}
+
+
+def test_split_contacts_by_origin_matches_by_email_case_insensitively():
+    from review.logic import split_contacts_by_origin
+
+    response = {
+        "created_contacts": [{"id": "c1", "email": "A@X.COM"}],
+        "existing_contacts": [],
+    }
+    rows = [{"id": 1, "email": "a@x.com"}]
+
+    created_map, existing_map = split_contacts_by_origin(response, rows)
+
+    assert created_map == {1: "c1"}
+    assert existing_map == {}
+
+
+def test_split_contacts_by_origin_ignores_unknown_emails():
+    from review.logic import split_contacts_by_origin
+
+    response = {
+        "created_contacts": [{"id": "c9", "email": "unknown@nowhere.com"}],
+        "existing_contacts": [],
+    }
+    rows = [{"id": 1, "email": "a@x.com"}]
+
+    created_map, existing_map = split_contacts_by_origin(response, rows)
+
+    assert created_map == {}
+    assert existing_map == {}
+
+
+def test_split_contacts_by_origin_handles_missing_arrays():
+    from review.logic import split_contacts_by_origin
+
+    rows = [{"id": 1, "email": "a@x.com"}]
+
+    created_map, existing_map = split_contacts_by_origin({}, rows)
+    assert created_map == {}
+    assert existing_map == {}
+
+    created_map, existing_map = split_contacts_by_origin(
+        {"created_contacts": [{"id": "c1", "email": "a@x.com"}]}, rows
+    )
+    assert created_map == {1: "c1"}
+    assert existing_map == {}
+
+
+def test_map_created_contacts_still_merges_both_origins():
+    from review.logic import map_created_contacts
+
+    rows = [
+        {"id": 1, "email": "jamie@acme.com"},
+        {"id": 2, "email": "cher@acme.com"},
+    ]
+    response = {
+        "created_contacts": [{"id": "c1", "email": "jamie@acme.com"}],
+        "existing_contacts": [{"id": "c2", "email": "cher@acme.com"}],
+    }
+
+    result = map_created_contacts(response, rows)
+
+    assert result == {1: "c1", 2: "c2"}

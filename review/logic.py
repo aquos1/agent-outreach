@@ -56,32 +56,57 @@ def build_contact_payloads(rows: list[dict]) -> list[dict]:
     return payloads
 
 
-def map_created_contacts(response: dict, rows: list[dict]) -> dict[int, str]:
-    """Map prospect id -> Apollo contact id by matching email, never list
-    position (Apollo does not document input-order == output-order across
-    `created_contacts`/`existing_contacts`, 04-RESEARCH.md Pattern 2).
+def split_contacts_by_origin(
+    response: dict, rows: list[dict]
+) -> tuple[dict[int, str], dict[int, str]]:
+    """Split a bulk_create response into (created_map, existing_map), each
+    prospect id -> Apollo contact id, matched by lowercased email only, never
+    list position (Apollo does not document input-order == output-order
+    across `created_contacts`/`existing_contacts`, 04-RESEARCH.md Pattern 2).
 
-    Builds an email -> prospect-id map from `rows` first (lowercased), then
-    walks `created_contacts + existing_contacts`, mapping each entry's
-    lowercased email back to its prospect id. Entries whose email matches no
-    row are skipped silently.
+    D-17: Apollo returns already-existing contacts (`existing_contacts`)
+    completely unmodified by the `bulk_create` call — any `typed_custom_fields`
+    sent in the create request never reaches them. `existing_map` is exactly
+    the set of prospects whose Apollo contact needs a follow-up
+    `update_contact_custom_field()` call to actually deliver the opening
+    line; the caller must never assume the create request personalized them
+    just because the contact now exists in Apollo.
+
+    Missing `created_contacts`/`existing_contacts` keys degrade to an empty
+    dict for that origin rather than raising. Entries whose email matches no
+    row are skipped silently, in both maps.
     """
     email_to_prospect_id = {
         row["email"].lower(): row["id"] for row in rows if row.get("email")
     }
 
-    result: dict[int, str] = {}
-    all_contacts = response.get("created_contacts", []) + response.get(
-        "existing_contacts", []
-    )
-    for contact in all_contacts:
-        email = contact.get("email")
-        if not email:
-            continue
-        prospect_id = email_to_prospect_id.get(email.lower())
-        if prospect_id is not None:
-            result[prospect_id] = contact.get("id")
-    return result
+    def _map_contacts(contacts: list[dict]) -> dict[int, str]:
+        result: dict[int, str] = {}
+        for contact in contacts:
+            email = contact.get("email")
+            if not email:
+                continue
+            prospect_id = email_to_prospect_id.get(email.lower())
+            if prospect_id is not None:
+                result[prospect_id] = contact.get("id")
+        return result
+
+    created_map = _map_contacts(response.get("created_contacts", []))
+    existing_map = _map_contacts(response.get("existing_contacts", []))
+    return created_map, existing_map
+
+
+def map_created_contacts(response: dict, rows: list[dict]) -> dict[int, str]:
+    """Map prospect id -> Apollo contact id by matching email, never list
+    position (Apollo does not document input-order == output-order across
+    `created_contacts`/`existing_contacts`, 04-RESEARCH.md Pattern 2).
+
+    Pure internal refactor: delegates to split_contacts_by_origin() and
+    returns the merged union of both origin maps. Signature, return type and
+    behavior are unchanged from before this refactor.
+    """
+    created_map, existing_map = split_contacts_by_origin(response, rows)
+    return {**created_map, **existing_map}
 
 
 def split_enrollment_outcome(
