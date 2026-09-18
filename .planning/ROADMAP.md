@@ -128,8 +128,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 04-02-PLAN.md — Shared per-path template editor: merge-field validation, SQLite override persistence, immediate preview re-assembly (D-03-D-06)
-- [ ] 04-03-PLAN.md — Enrollment engine: Apollo bulk_create (with typed_custom_fields) + add_contact_ids clients, pure reconciliation/outcome logic, status transitions (QUEUE-04, D-16)
+- [x] 04-02-PLAN.md — Shared per-path template editor: merge-field validation, SQLite override persistence, immediate preview re-assembly (D-03-D-06)
+- [x] 04-03-PLAN.md — Enrollment engine: Apollo bulk_create (with typed_custom_fields) + add_contact_ids clients, pure reconciliation/outcome logic, status transitions (QUEUE-04, D-16)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -169,5 +169,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
 | 3. AI Personalization | 4/4 | Complete   | 2026-09-17 |
-| 4. Review Queue and Sequence Enrollment | 1/6 | In Progress|  |
+| 4. Review Queue and Sequence Enrollment | 3/6 | In Progress|  |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
