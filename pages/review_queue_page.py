@@ -253,6 +253,114 @@ except Exception:
     )
 
 if rows is not None:
+    # Approval handler — runs on the rerun that follows the dialog's Confirm
+    # Enrollment click, before any row rendering. `target_ids` is captured
+    # and `pending_approval` cleared immediately so a later rerun (e.g. a
+    # teammate toggling a checkbox) can never re-fire the same enrollment.
+    if st.session_state.pending_approval:
+        target_ids = st.session_state.pending_approval
+        st.session_state.pending_approval = None
+        personalization_failures: list[int] = []
+
+        try:
+            target_rows = [row for row in rows if row["id"] in target_ids]
+
+            with st.spinner("Creating Apollo contacts..."):
+                payloads = build_contact_payloads(target_rows)
+                data, msg = create_contacts_bulk(
+                    apollo_key,
+                    payloads,
+                    label_names=[f"{slug.replace('_', '-')}-outreach"],
+                    opening_line_field_id=st.session_state.opening_line_field_id,
+                )
+
+            if data is None:
+                st.session_state.approve_result = {
+                    "error": msg,
+                    "path": slug,
+                    "enrolled": [],
+                    "skipped": [],
+                    "personalization_failures": [],
+                }
+            else:
+                prospect_to_contact = map_created_contacts(data, target_rows)
+                if not prospect_to_contact:
+                    st.session_state.approve_result = {
+                        "error": "Apollo returned no usable contacts for this batch — check that these contacts have valid emails and try again.",
+                        "path": slug,
+                        "enrolled": [],
+                        "skipped": [],
+                        "personalization_failures": [],
+                    }
+                else:
+                    # D-17 follow-up: contacts bulk_create already had on
+                    # file are returned unmodified, so the opening line sent
+                    # in the create call above never reached them. Update
+                    # each one directly; a failed update is surfaced as a
+                    # non-blocking warning below, never treated as a skip.
+                    created_map, existing_map = split_contacts_by_origin(data, target_rows)
+                    opening_line_by_prospect = {
+                        row["id"]: row.get("opening_line") or "" for row in target_rows
+                    }
+                    for prospect_id, contact_id in existing_map.items():
+                        opening_line = opening_line_by_prospect.get(prospect_id, "")
+                        if not opening_line:
+                            continue
+                        updated_ok, _ = update_contact_custom_field(
+                            apollo_key,
+                            contact_id,
+                            st.session_state.opening_line_field_id,
+                            opening_line,
+                        )
+                        if not updated_ok:
+                            personalization_failures.append(prospect_id)
+
+                    contact_to_prospect = {
+                        contact_id: prospect_id
+                        for prospect_id, contact_id in prospect_to_contact.items()
+                    }
+
+                    with st.spinner(f"Enrolling contacts in the {selected_path} sequence..."):
+                        resp, msg = add_contacts_to_sequence(
+                            apollo_key,
+                            sequence_id,
+                            list(contact_to_prospect.keys()),
+                            sending_account_id,
+                        )
+
+                    if resp is None:
+                        st.session_state.approve_result = {
+                            "error": msg,
+                            "path": slug,
+                            "enrolled": [],
+                            "skipped": [],
+                            "personalization_failures": [],
+                        }
+                    else:
+                        # D-07: classification comes from the response body
+                        # only — an HTTP 200 alone is never confirmation.
+                        enrolled_ids, skipped_pairs = split_enrollment_outcome(
+                            resp, contact_to_prospect
+                        )
+                        for prospect_id in enrolled_ids:
+                            mark_contact_created(prospect_id, prospect_to_contact[prospect_id])
+                            mark_sequenced(prospect_id)
+                        st.session_state.approve_result = {
+                            "error": None,
+                            "path": slug,
+                            "enrolled": enrolled_ids,
+                            "skipped": skipped_pairs,
+                            "personalization_failures": personalization_failures,
+                        }
+        except Exception:
+            st.session_state.approve_result = {
+                "error": "Enrollment failed — check your internet connection and try again. No contacts were changed.",
+                "path": slug,
+                "enrolled": [],
+                "skipped": [],
+                "personalization_failures": [],
+            }
+
     if not rows:
         # D-12/UI-SPEC: an empty queue is never a failure — st.info only.
         st.info(
@@ -264,6 +372,37 @@ if rows is not None:
     else:
         n = len(rows)
         st.caption(f"{n} draft{'' if n == 1 else 's'} ready for review.")
+
+        # D-07/D-08/D-12: only apply an approve outcome to the currently
+        # selected path — a stale result from another path is ignored.
+        approve_result = st.session_state.approve_result
+        if approve_result is not None and approve_result.get("path") != slug:
+            approve_result = None
+
+        enrolled_ids_set: set[int] = set()
+        skipped_reason_by_id: dict[int, str] = {}
+
+        if approve_result is not None:
+            if approve_result["error"]:
+                st.error(approve_result["error"], icon=":material/cancel:")
+            else:
+                enrolled_ids_set = set(approve_result["enrolled"])
+                skipped_reason_by_id = dict(approve_result["skipped"])
+                enrolled_count = len(enrolled_ids_set)
+                skipped_count = len(skipped_reason_by_id)
+                st.success(
+                    f"{enrolled_count} contact{'' if enrolled_count == 1 else 's'} enrolled, "
+                    f"{skipped_count} skipped.",
+                    icon=":material/check_circle:",
+                )
+                pf_count = len(approve_result.get("personalization_failures") or [])
+                if pf_count:
+                    st.warning(
+                        f"{pf_count} contact{'' if pf_count == 1 else 's'} will receive the "
+                        "sequence email without a personalized opening line — updating "
+                        "Apollo with it failed.",
+                        icon=":material/error:",
+                    )
 
         header_cols = st.columns([1, 3, 3, 3, 2])
         header_cols[0].markdown("**Select**")
@@ -279,17 +418,34 @@ if rows is not None:
             title = row.get("title") or "—"
 
             row_cols = st.columns([1, 3, 3, 3, 2])
-            # QUEUE-03: default checked — a teammate unchecks to exclude a
-            # specific contact from the next Approve action.
-            checked = row_cols[0].checkbox(
-                "", value=True, key=f"sel_{row['id']}", label_visibility="collapsed"
-            )
-            if checked:
-                selected_ids.append(row["id"])
+            if row["id"] in enrolled_ids_set:
+                # D-12: a confirmed-enrolled row's checkbox is replaced by a
+                # badge — it naturally drops out of this query on the next
+                # full page load since it's no longer status='drafted'.
+                row_cols[0].badge(
+                    "Enrolled", icon=":material/check_circle:", color="green"
+                )
+            else:
+                # QUEUE-03: default checked — a teammate unchecks to exclude
+                # a specific contact from the next Approve action. A skipped
+                # row (D-08) keeps this same interactive checkbox so it stays
+                # retryable.
+                checked = row_cols[0].checkbox(
+                    "", value=True, key=f"sel_{row['id']}", label_visibility="collapsed"
+                )
+                if checked:
+                    selected_ids.append(row["id"])
             row_cols[1].write(name)
             row_cols[2].write(company)
             row_cols[3].write(title)
-            row_cols[4].write("")  # Status badge lands here in Task 2
+            if row["id"] in skipped_reason_by_id:
+                row_cols[4].badge(
+                    f"Skipped — {skipped_reason_by_id[row['id']]}",
+                    icon=":material/error:",
+                    color="orange",
+                )
+            else:
+                row_cols[4].write("")
 
             with st.expander(
                 f"View draft — {name} ({company})",
