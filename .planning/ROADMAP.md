@@ -124,7 +124,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Review Queue page: path-scoped queue of drafted contacts + per-row draft preview; title/last_name columns and the template_override table (QUEUE-01, QUEUE-02)
+- [x] 04-01-PLAN.md — Review Queue page: path-scoped queue of drafted contacts + per-row draft preview; title/last_name columns and the template_override table (QUEUE-01, QUEUE-02)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -169,5 +169,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
 | 3. AI Personalization | 4/4 | Complete   | 2026-09-17 |
-| 4. Review Queue and Sequence Enrollment | 0/6 | Planned     | - |
+| 4. Review Queue and Sequence Enrollment | 1/6 | In Progress|  |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
