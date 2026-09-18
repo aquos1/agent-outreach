@@ -177,3 +177,137 @@ def test_update_draft_writes_status_drafted(tmp_db_path):
     assert untouched_opening_line is None
     assert untouched_draft_source is None
     assert untouched_status == "enriched"
+
+
+def test_insert_enriched_persists_title_and_names(tmp_db_path):
+    """insert_enriched must persist title/first_name/last_name from a real
+    bulk_match match dict shape (Phase 4 QUEUE-02 role column, Apollo
+    contact-creation payload)."""
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+
+    from db.prospects import insert_enriched
+
+    rows = [
+        {
+            "id": "match-1",
+            "name": "Jamie Smith",
+            "first_name": "Jamie",
+            "last_name": "Smith",
+            "title": "Head of Partnerships",
+            "organization_name": "Acme Co",
+            "email": "jamie@acme.com",
+        },
+    ]
+
+    insert_enriched(rows, path="club_sponsorship", db_path=tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT title, first_name, last_name FROM prospect WHERE apollo_person_id = ?",
+            ("match-1",),
+        )
+        title, first_name, last_name = cur.fetchone()
+    finally:
+        conn.close()
+
+    assert title == "Head of Partnerships"
+    assert first_name == "Jamie"
+    assert last_name == "Smith"
+
+
+def test_get_drafted_by_path(tmp_db_path):
+    """get_drafted_by_path returns only the selected path's drafted rows,
+    with all fields the Review Queue needs (Phase 4 QUEUE-01/QUEUE-02)."""
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+
+    from db.prospects import get_drafted_by_path, insert_enriched, update_draft
+
+    club_rows = [
+        {
+            "id": "club-1",
+            "name": "Jamie Smith",
+            "first_name": "Jamie",
+            "last_name": "Smith",
+            "title": "Head of Partnerships",
+            "organization_name": "Acme Co",
+            "email": "jamie@acme.com",
+        },
+        {
+            "id": "club-2",
+            "name": "Robin Lee",
+            "first_name": "Robin",
+            "last_name": "Lee",
+            "title": "Director",
+            "organization_name": "Newcorp",
+            "email": "robin@newcorp.com",
+        },
+        {
+            "id": "club-3",
+            "name": "Left Enriched",
+            "first_name": "Left",
+            "last_name": "Enriched",
+            "title": "Manager",
+            "organization_name": "Otherco",
+            "email": "left@otherco.com",
+        },
+    ]
+    productthon_rows = [
+        {
+            "id": "prod-1",
+            "name": "Taylor Kim",
+            "first_name": "Taylor",
+            "last_name": "Kim",
+            "title": "VP",
+            "organization_name": "Prodco",
+            "email": "taylor@prodco.com",
+        },
+    ]
+
+    insert_enriched(club_rows, path="club_sponsorship", db_path=tmp_db_path)
+    insert_enriched(productthon_rows, path="productthon", db_path=tmp_db_path)
+
+    update_draft("club-1", "A grounded opener.", "ai", first_name="Jamie", db_path=tmp_db_path)
+    update_draft("club-2", "Another opener.", "ai", first_name="Robin", db_path=tmp_db_path)
+    update_draft("prod-1", "Productthon opener.", "ai", first_name="Taylor", db_path=tmp_db_path)
+    # club-3 intentionally left at status='enriched' (not advanced to drafted).
+
+    result = get_drafted_by_path("club_sponsorship", db_path=tmp_db_path)
+
+    assert len(result) == 2
+    names = {row["name"] for row in result}
+    assert names == {"Jamie Smith", "Robin Lee"}
+
+    expected_keys = {
+        "id",
+        "name",
+        "first_name",
+        "last_name",
+        "company",
+        "company_domain",
+        "email",
+        "title",
+        "path",
+        "opening_line",
+    }
+    for row in result:
+        assert expected_keys <= set(row.keys())
+        assert row["path"] == "club_sponsorship"
+
+
+def test_get_drafted_by_path_empty(tmp_db_path):
+    """A path with no drafted rows returns an empty list, never None/raises."""
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+
+    from db.prospects import get_drafted_by_path
+
+    result = get_drafted_by_path("client_sourcing", db_path=tmp_db_path)
+
+    assert result == []
