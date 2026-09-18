@@ -311,3 +311,185 @@ def test_get_drafted_by_path_empty(tmp_db_path):
     result = get_drafted_by_path("client_sourcing", db_path=tmp_db_path)
 
     assert result == []
+
+
+def test_mark_contact_created(tmp_db_path):
+    """mark_contact_created writes apollo_contact_id + status='contact_created'
+    and the row becomes visible in contacted_registry (Phase 4 dedup-registry
+    success criterion)."""
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+
+    from db.prospects import insert_enriched, mark_contact_created
+
+    rows = [
+        {
+            "id": "match-1",
+            "name": "Jamie Smith",
+            "organization_name": "Acme Co",
+            "email": "jamie@acme.com",
+        },
+    ]
+    insert_enriched(rows, path="club_sponsorship", db_path=tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM prospect WHERE apollo_person_id = ?", ("match-1",))
+        prospect_id = cur.fetchone()[0]
+    finally:
+        conn.close()
+
+    mark_contact_created(prospect_id, "apollo-contact-123", db_path=tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT status, apollo_contact_id FROM prospect WHERE id = ?", (prospect_id,)
+        )
+        status, apollo_contact_id = cur.fetchone()
+        cur.execute("SELECT COUNT(*) FROM contacted_registry WHERE id = ?", (prospect_id,))
+        registry_count = cur.fetchone()[0]
+    finally:
+        conn.close()
+
+    assert status == "contact_created"
+    assert apollo_contact_id == "apollo-contact-123"
+    assert registry_count == 1
+
+
+def test_mark_sequenced_only_affects_selected(tmp_db_path):
+    """mark_sequenced advances only the targeted prospect id; every other
+    submitted prospect stays untouched at its prior status."""
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+
+    from db.prospects import insert_enriched, mark_sequenced, update_draft
+
+    rows = [
+        {
+            "id": "apollo-1",
+            "name": "Jamie Smith",
+            "organization_name": "Acme Co",
+            "email": "jamie@acme.com",
+        },
+        {
+            "id": "apollo-2",
+            "name": "Robin Lee",
+            "organization_name": "Newcorp",
+            "email": "robin@newcorp.com",
+        },
+    ]
+    insert_enriched(rows, path="club_sponsorship", db_path=tmp_db_path)
+    update_draft("apollo-1", "Opener one.", "ai", db_path=tmp_db_path)
+    update_draft("apollo-2", "Opener two.", "ai", db_path=tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM prospect WHERE apollo_person_id = ?", ("apollo-1",))
+        prospect_id_1 = cur.fetchone()[0]
+        cur.execute("SELECT id FROM prospect WHERE apollo_person_id = ?", ("apollo-2",))
+        prospect_id_2 = cur.fetchone()[0]
+    finally:
+        conn.close()
+
+    mark_sequenced(prospect_id_1, db_path=tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT status FROM prospect WHERE id = ?", (prospect_id_1,))
+        status_1 = cur.fetchone()[0]
+        cur.execute("SELECT status FROM prospect WHERE id = ?", (prospect_id_2,))
+        status_2 = cur.fetchone()[0]
+    finally:
+        conn.close()
+
+    assert status_1 == "sequenced"
+    assert status_2 == "drafted"
+
+
+def test_partial_enrollment_leaves_skipped_drafted(tmp_db_path):
+    """D-08 retry guarantee: applying mark_contact_created + mark_sequenced
+    only for the enrolled prospect leaves the skipped prospect at 'drafted'
+    with no apollo_contact_id, absent from contacted_registry, and still
+    returned by get_drafted_by_path."""
+    from db.schema import ensure_schema
+
+    ensure_schema(tmp_db_path)
+
+    from db.prospects import (
+        get_drafted_by_path,
+        insert_enriched,
+        mark_contact_created,
+        mark_sequenced,
+        update_draft,
+    )
+
+    rows = [
+        {
+            "id": "apollo-1",
+            "name": "Jamie Smith",
+            "organization_name": "Acme Co",
+            "email": "jamie@acme.com",
+        },
+        {
+            "id": "apollo-2",
+            "name": "Robin Lee",
+            "organization_name": "Newcorp",
+            "email": "robin@newcorp.com",
+        },
+    ]
+    insert_enriched(rows, path="club_sponsorship", db_path=tmp_db_path)
+    update_draft("apollo-1", "Opener one.", "ai", db_path=tmp_db_path)
+    update_draft("apollo-2", "Opener two.", "ai", db_path=tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM prospect WHERE apollo_person_id = ?", ("apollo-1",))
+        enrolled_id = cur.fetchone()[0]
+        cur.execute("SELECT id FROM prospect WHERE apollo_person_id = ?", ("apollo-2",))
+        skipped_id = cur.fetchone()[0]
+    finally:
+        conn.close()
+
+    # Confirmed-only write order: mark_contact_created + mark_sequenced for
+    # the ENROLLED prospect id only; no DB call at all for the skipped one.
+    mark_contact_created(enrolled_id, "apollo-contact-enrolled", db_path=tmp_db_path)
+    mark_sequenced(enrolled_id, db_path=tmp_db_path)
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT status, apollo_contact_id FROM prospect WHERE id = ?", (enrolled_id,)
+        )
+        enrolled_status, enrolled_contact_id = cur.fetchone()
+        cur.execute(
+            "SELECT status, apollo_contact_id FROM prospect WHERE id = ?", (skipped_id,)
+        )
+        skipped_status, skipped_contact_id = cur.fetchone()
+        cur.execute("SELECT COUNT(*) FROM contacted_registry WHERE id = ?", (enrolled_id,))
+        enrolled_in_registry = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM contacted_registry WHERE id = ?", (skipped_id,))
+        skipped_in_registry = cur.fetchone()[0]
+    finally:
+        conn.close()
+
+    assert enrolled_status == "sequenced"
+    assert enrolled_contact_id == "apollo-contact-enrolled"
+    assert enrolled_in_registry == 1
+
+    assert skipped_status == "drafted"
+    assert skipped_contact_id is None
+    assert skipped_in_registry == 0
+
+    remaining_drafted = get_drafted_by_path("club_sponsorship", db_path=tmp_db_path)
+    remaining_ids = {row["id"] for row in remaining_drafted}
+    assert skipped_id in remaining_ids
+    assert enrolled_id not in remaining_ids
