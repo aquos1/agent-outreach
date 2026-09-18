@@ -20,6 +20,14 @@ Phase 4 adds the two enrollment-engine calls (QUEUE-04):
       (query params, not a JSON body; returns the raw 200 body unconditionally —
       classifying Enrolled vs Skipped is review/logic.py's job, D-07/D-08)
 
+Phase 4 also adds the custom-field lifecycle (D-14 through D-18) that lets the
+AI opening line actually reach Apollo, rather than staying a review-only preview:
+- GET  /fields?source=custom          -> _find_custom_field_id (idempotent lookup)
+- POST /fields                        -> ensure_custom_field (create-if-missing, D-18)
+- PATCH /contacts/{contact_id}        -> update_contact_custom_field (D-17 follow-up
+      for contacts bulk_create returns in existing_contacts, which it leaves
+      completely unmodified regardless of typed_custom_fields sent at create time)
+
 Every function returns a typed tuple and never raises — network failures and
 unexpected response shapes degrade to a plain-language banner message instead
 of propagating a stack trace to the (non-technical) user (SC-2, T-03-02).
@@ -384,3 +392,145 @@ def add_contacts_to_sequence(
         return None, f"Enrollment failed — unexpected status {resp.status_code}."
 
     return resp.json(), "OK"
+
+
+def _find_custom_field_id(api_key: str, label: str) -> tuple[str | None, str]:
+    """GET /fields?source=custom, match by exact label + modality='contact' (D-18).
+
+    Live, non-deprecated replacement for Apollo's old list-all-custom-fields
+    endpoint (deprecated in favor of this `source`-filtered lookup). No
+    pagination — a single GET returns the full field list.
+
+    Returns (raw_field_id, "OK") on a match, (None, "NOT_FOUND") if no field
+    with this label exists yet (a normal outcome, not a failure — the caller
+    creates one), or (None, banner_message) on any real failure. Never raises.
+
+    CITED (docs.apollo.io/reference/get-a-list-of-fields, cross-verified
+    against /reference/create-a-custom-field, /reference/bulk-create-contacts
+    and /reference/update-a-contact): the response wraps results in a
+    top-level "fields" array (not "typed_custom_fields" — that wrapper key is
+    only used by the write endpoints). Each entry's "id" is PREFIXED by
+    modality (e.g. "contact.<hex>"), but every write path that uses a field
+    id as a `typed_custom_fields` dict key (bulk_create, PATCH /contacts)
+    expects the RAW UNPREFIXED hex string instead. Passing the prefixed form
+    through unmodified silently fails to attach anything (Apollo ignores the
+    unrecognized key rather than erroring) — so the prefix is always stripped
+    here before returning, never left for a caller to remember to do.
+    """
+    try:
+        resp = requests.get(
+            f"{APOLLO_BASE}/fields",
+            headers={"x-api-key": api_key},
+            params={"source": "custom"},
+            timeout=10,
+        )
+    except requests.RequestException:
+        return None, "Could not check Apollo custom fields — check your internet connection."
+
+    if resp.status_code == 401:
+        return None, "Apollo connection failed — check that APOLLO_API_KEY is set correctly in Streamlit secrets."
+    if resp.status_code == 403:
+        return None, "Apollo connection failed — this key is not a Master API key. Check Apollo Settings → Integrations → API Keys."
+    if resp.status_code != 200:
+        return None, f"Could not check Apollo custom fields — unexpected status {resp.status_code}."
+
+    for field in resp.json().get("fields", []):
+        if field.get("label") == label and field.get("modality") == "contact":
+            raw_field_id = field["id"].split(".", 1)[-1]
+            return raw_field_id, "OK"
+    return None, "NOT_FOUND"
+
+
+def ensure_custom_field(
+    api_key: str, label: str = "AI Opening Line"
+) -> tuple[str | None, str]:
+    """Idempotently resolve the custom field id carrying the AI opening line (D-18).
+
+    Mirrors db/schema.py's ensure_schema() idempotent-boot convention, but
+    with Apollo itself as the source of truth rather than any local flag —
+    calling this on every app boot/session stays correct even across a fresh
+    checkout or a brand-new deployment where no local state remembers a prior
+    run. Checks _find_custom_field_id() first and only calls POST /fields to
+    create a new field when none exists yet, so repeated calls never create a
+    duplicate field.
+
+    A real lookup failure (anything other than the "NOT_FOUND" sentinel) is
+    propagated immediately without attempting creation — a transient auth or
+    network error must never be mistaken for "doesn't exist yet" and result
+    in a duplicate field being created.
+
+    Returns (field_id_or_None, message). Never raises.
+    """
+    field_id, msg = _find_custom_field_id(api_key, label)
+    if field_id is not None:
+        return field_id, "OK"
+    if msg != "NOT_FOUND":
+        return None, msg
+
+    # meta.max_length: 500 is a deliberate ~2x headroom choice over the
+    # opening line's expected ~150-250 characters (04-RESEARCH.md
+    # Assumption A5) — Apollo documents no absolute cap for a string field,
+    # so this is an explicit, reasoned buffer rather than reliance on an
+    # undocumented default.
+    payload = {
+        "label": label,
+        "modality": "contact",
+        "type": "string",
+        "meta": {"max_length": 500},
+    }
+    resp = _post_with_retry(f"{APOLLO_BASE}/fields", api_key, payload)
+    if resp is None:
+        return None, "Could not create the Apollo custom field — check your internet connection and try again."
+    if resp.status_code == 401:
+        return None, "Apollo connection failed — check that APOLLO_API_KEY is set correctly in Streamlit secrets."
+    if resp.status_code == 403:
+        return None, "Apollo connection failed — this key is not a Master API key. Check Apollo Settings → Integrations → API Keys."
+    if resp.status_code == 422:
+        apollo_message = resp.json().get("message", "invalid request")
+        return None, f"Apollo couldn't create the custom field — {apollo_message}"
+    if resp.status_code != 200:
+        return None, f"Could not create the Apollo custom field — unexpected status {resp.status_code}."
+
+    created = resp.json().get("typed_custom_fields", [])
+    if not created:
+        return None, "Apollo created the field but returned no id — check Apollo Settings > Fields manually."
+    return created[0]["id"], "OK"
+
+
+def update_contact_custom_field(
+    api_key: str, contact_id: str, field_id: str, value: str
+) -> tuple[bool, str]:
+    """PATCH /contacts/{contact_id} — attach the opening line to a contact
+    that bulk_create returned in `existing_contacts` (D-17).
+
+    bulk_create leaves every already-existing Apollo contact completely
+    unmodified regardless of the `typed_custom_fields` sent in the create
+    request, so without this follow-up call their opening line silently
+    never reaches Apollo. `field_id` must be the raw unprefixed hex id (the
+    same shape _find_custom_field_id/ensure_custom_field return) — this
+    function does not strip a prefix itself, it trusts its caller.
+
+    Returns (success, message). Never raises.
+    """
+    try:
+        resp = requests.patch(
+            f"{APOLLO_BASE}/contacts/{contact_id}",
+            headers={"x-api-key": api_key},
+            json={"typed_custom_fields": {field_id: value}},
+            timeout=15,
+        )
+    except requests.RequestException:
+        return False, "Could not update this contact's opening line — check your internet connection."
+
+    if resp.status_code == 401:
+        return False, "Apollo connection failed — check that APOLLO_API_KEY is set correctly in Streamlit secrets."
+    if resp.status_code == 403:
+        return False, "Apollo connection failed — this key is not a Master API key. Check Apollo Settings → Integrations → API Keys."
+    if resp.status_code == 429:
+        return False, "Apollo is rate-limiting contact updates — please wait a moment and try again."
+    if resp.status_code == 422:
+        apollo_message = resp.json().get("message", "invalid request")
+        return False, f"Apollo couldn't update this contact — {apollo_message}"
+    if resp.status_code != 200:
+        return False, f"Could not update this contact's opening line — unexpected status {resp.status_code}."
+    return True, "OK"
