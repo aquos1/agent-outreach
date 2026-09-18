@@ -133,7 +133,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 04-06-PLAN.md — Personalization delivery engine: idempotent AI Opening Line custom field, raw-vs-prefixed field-id guard, contact-update call, created/existing origin split (QUEUE-04, D-14-D-18)
+- [x] 04-06-PLAN.md — Personalization delivery engine: idempotent AI Opening Line custom field, raw-vs-prefixed field-id guard, contact-update call, created/existing origin split (QUEUE-04, D-14-D-18)
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -169,5 +169,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
 | 3. AI Personalization | 4/4 | Complete   | 2026-09-17 |
-| 4. Review Queue and Sequence Enrollment | 3/6 | In Progress|  |
+| 4. Review Queue and Sequence Enrollment | 4/6 | In Progress|  |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
