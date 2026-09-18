@@ -1,11 +1,14 @@
 """Idempotent SQLite schema bootstrap for the dedup registry (DEDUP-01).
 
-ensure_schema() creates the prospect, email_events, and free_email_domains
-tables (if they don't already exist), seeds the free-email-domain exclusion
-list, and can be called on every app boot without raising on a pre-existing
-database file. It also applies additive column migrations to an existing
-prospect table (opening_line, first_name, draft_source for D-04 draft
-persistence), keeping the idempotent-boot guarantee intact.
+ensure_schema() creates the prospect, email_events, free_email_domains, and
+template_override tables (if they don't already exist), seeds the
+free-email-domain exclusion list, and can be called on every app boot
+without raising on a pre-existing database file. It also applies additive
+column migrations to an existing prospect table (opening_line, first_name,
+draft_source for D-04 draft persistence; title and last_name for Phase 4 —
+title backs QUEUE-02's role column in the Review Queue, last_name backs
+Phase 4's Apollo contact-creation payload), keeping the idempotent-boot
+guarantee intact.
 """
 from __future__ import annotations
 
@@ -48,6 +51,19 @@ CREATE TABLE IF NOT EXISTS free_email_domains (
 );
 INSERT OR IGNORE INTO free_email_domains (domain) VALUES
     ('gmail.com'), ('outlook.com'), ('yahoo.com'), ('hotmail.com'), ('icloud.com');
+
+-- Per-path shared email template overrides (D-05). path is one of
+-- 'club_sponsorship' | 'productthon' | 'client_sourcing' (same three slugs
+-- as prospect.path / discovery/logic.py's PATH_CONFIG). This is a brand-new
+-- table -- CREATE TABLE IF NOT EXISTS alone is idempotent, so it is NOT
+-- added to _NEW_COLUMNS/_migrate_columns (that mechanism is for ALTER TABLE
+-- additions onto the already-populated prospect table only).
+CREATE TABLE IF NOT EXISTS template_override (
+    path        TEXT PRIMARY KEY,
+    subject     TEXT NOT NULL,
+    body        TEXT NOT NULL,
+    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 # Views must be dropped and recreated explicitly on every boot — SQLite's
@@ -80,6 +96,8 @@ _NEW_COLUMNS = [
     ("opening_line", "TEXT"),
     ("first_name", "TEXT"),
     ("draft_source", "TEXT"),  # 'ai' | 'fallback'
+    ("title", "TEXT"),         # Apollo match title -- backs QUEUE-02's role column
+    ("last_name", "TEXT"),     # backs Phase 4's Apollo contact-creation payload
 ]
 
 

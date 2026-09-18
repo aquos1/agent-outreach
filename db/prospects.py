@@ -88,7 +88,11 @@ def insert_enriched(
     Every field access on Apollo-derived match dicts uses `.get()`
     defensively. company_domain is derived from the match's organization
     website_url when present, falling back to the email domain otherwise.
-    Commits once after all rows are staged; returns the number inserted.
+    Also persists title, first_name, and last_name (Phase 4: title backs
+    QUEUE-02's role column, last_name backs Apollo contact-creation;
+    update_draft later overwrites first_name with the same value, which is
+    harmless). Commits once after all rows are staged; returns the number
+    inserted.
 
     CONFIRMED (02-03 live human-verify, 2026-09-11): a real `bulk_match`
     match's `organization.website_url` is present and populated (unlike the
@@ -111,6 +115,9 @@ def insert_enriched(
             company = organization.get("name") or match.get("organization_name")
             email = match.get("email")
             apollo_person_id = match.get("id")
+            title = match.get("title")
+            first_name = match.get("first_name")
+            last_name = match.get("last_name")
 
             company_domain = _domain_from_url(organization.get("website_url"))
             if not company_domain:
@@ -118,9 +125,20 @@ def insert_enriched(
 
             cur.execute(
                 "INSERT INTO prospect "
-                "(name, company, company_domain, apollo_person_id, email, path, status) "
-                "VALUES (?, ?, ?, ?, ?, ?, 'enriched')",
-                (name, company, company_domain, apollo_person_id, email, path),
+                "(name, company, company_domain, apollo_person_id, email, path, "
+                "status, title, first_name, last_name) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'enriched', ?, ?, ?)",
+                (
+                    name,
+                    company,
+                    company_domain,
+                    apollo_person_id,
+                    email,
+                    path,
+                    title,
+                    first_name,
+                    last_name,
+                ),
             )
             count += 1
         conn.commit()
@@ -156,3 +174,35 @@ def update_draft(
         conn.commit()
     finally:
         conn.close()
+
+
+def get_drafted_by_path(
+    path_slug: str, db_path: str = "db/outreach.db"
+) -> list[dict]:
+    """Return every status='drafted' prospect for path_slug, as plain dicts.
+
+    This is the Review Queue's source query (QUEUE-01): a teammate must see
+    every drafted contact for the selected path, with nothing withheld.
+    Skipped contacts (Phase 4's later Approve flow, D-08) intentionally stay
+    visible here too, since they remain at status='drafted' and this query
+    has no awareness of "skipped" as a separate state.
+
+    Follows dedup_filter's connection lifecycle exactly: connect -> execute
+    -> fetchall inside try/finally, transform into plain dicts outside the
+    connection block.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, name, first_name, last_name, company, company_domain, "
+            "email, title, path, opening_line FROM prospect "
+            "WHERE status = 'drafted' AND path = ? ORDER BY id",
+            (path_slug,),
+        )
+        rows = cur.fetchall()
+        columns = [description[0] for description in cur.description]
+    finally:
+        conn.close()
+
+    return [dict(zip(columns, row)) for row in rows]
