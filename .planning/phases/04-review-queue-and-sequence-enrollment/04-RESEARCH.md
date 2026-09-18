@@ -315,22 +315,25 @@ def validate_template_fields(body: str) -> tuple[bool, str]:
 | A3 | The sending-mailbox ID should be resolved as a new static secret (`APOLLO_SENDING_EMAIL_ACCOUNT_ID`), mirroring D-01/D-02 | Open Questions / Pitfall 3 | This is a recommendation, not a locked decision — if the user/planner instead wants a live `GET /email_accounts` lookup at enrollment time, the architecture (and the "no live dependency at enrollment" rationale from D-01) would need revisiting |
 | A4 | D-05's "seeded... on first read if no override exists yet" should be implemented as a lazy fallback-on-read (no write), not a forced write-on-first-view | Architecture Patterns Pattern 4 | If the intended behavior was actually "write a permanent override row the first time any teammate views the page," every path would silently get a DB row even without an edit — low risk either way since `PATH_TEMPLATES` stays correct as the code-level source, but worth a one-line confirmation during planning |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **How is `send_email_from_email_account_id` resolved?**
    - What we know: This is a required query param on `add_contact_ids` (CITED, docs.apollo.io + spec.MD §3.7). `GET /api/v1/email_accounts` (CITED, docs.apollo.io) returns each linked mailbox's `id`, `active`, and `default` flags — this is how the value would be obtained.
    - What's unclear: CONTEXT.md's D-01/D-02 only decided sequence-ID resolution; no decision exists for the mailbox-account ID. `.streamlit/secrets.toml.example` has no field for it today.
    - Recommendation: Planner should surface this to the user (or make an explicit Claude's-discretion call, since CONTEXT.md's "Claude's Discretion: None" only covers the four areas actually discussed) before writing enrollment tasks. The lowest-risk default, consistent with D-01's rationale, is a new `APOLLO_SENDING_EMAIL_ACCOUNT_ID` secret resolved once manually (via `GET /email_accounts`) rather than a live per-enrollment lookup.
+   - **RESOLVED:** Locked as CONTEXT.md D-13 (surfaced to the user, who chose the recommended hardcoded-secret approach). Implemented in plan 04-04 (secrets plumbing) and verified live in 04-05.
 
 2. **Exact `skipped_contact_ids` reason-code vocabulary and `bulk_create` response field names — live-verify before shipping.**
    - What we know: CITED from a direct `docs.apollo.io` fetch in this session, cross-corroborated by a second independent search for general shape (arrays split created/existing, skipped as id→reason map) but not for the literal reason-code strings.
    - What's unclear: Whether Apollo's actual live response for this team's account/plan matches the docs exactly (docs can lag behind or have copy errors, same category of risk that Phase 2's `organization_name` vs `organization.name` mismatch fell into).
    - Recommendation: Planner should include a live human-verify checkpoint task (same pattern as 02-03/03-xx) for both new endpoints before the phase's UI logic is finalized, per this repo's established convention of confirming Apollo response shapes against a real call rather than trusting docs alone.
+   - **RESOLVED:** Deferred by design to the 04-05 live-verify checkpoint (Tasks 2/3) — a valid resolution path for a live-API-dependent unknown, not a planning gap. 04-05 Task 3 reconciles the code against the observed live payloads.
 
 3. **Does the Apollo plan on this team's account support `add_contact_ids`'s override flags (`sequence_active_in_other_campaigns`, etc.) or are they gated by plan tier?**
    - What we know: Nothing plan-tier-specific found; STATE.md's existing "Blockers/Concerns" already flags "Apollo plan tier and rate limits — check /api/v1/usage before assuming documented limits apply" as an open project-level concern.
    - What's unclear: Whether this phase needs to expose any of these override flags in the UI (CONTEXT.md's decisions don't mention them) — D-08 only requires surfacing the reason when a contact is skipped, not necessarily offering a UI toggle to force past it in v1.
    - Recommendation: Treat override flags as out of scope for v1 UI (matches REVIEW-01/CONF-01 deferral spirit) — just surface the reason string; don't add checkboxes to force-enroll skipped contacts unless the user asks.
+   - **RESOLVED:** Explicit scope decision — no plan exposes override-flag UI; only the reason string is surfaced (per D-07/D-08). Confirmed by gsd-plan-checker's Context Compliance pass as correctly excluded, matching the recommendation above.
 
 ## Environment Availability
 
