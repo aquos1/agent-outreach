@@ -137,7 +137,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 04-04-PLAN.md — Approve slice: default-checked selection, confirmation dialog, enrollment handler with opening-line delivery + D-17 follow-up, per-contact Enrolled/Skipped badges (QUEUE-03, QUEUE-04)
+- [x] 04-04-PLAN.md — Approve slice: default-checked selection, confirmation dialog, enrollment handler with opening-line delivery + D-17 follow-up, per-contact Enrolled/Skipped badges (QUEUE-03, QUEUE-04)
 
 **Wave 5** *(blocked on Wave 4)*
 
@@ -169,5 +169,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 4/4 | Complete   | 2026-07-22 |
 | 2. Contact Discovery | 3/4 | In Progress|  |
 | 3. AI Personalization | 4/4 | Complete   | 2026-09-17 |
-| 4. Review Queue and Sequence Enrollment | 4/6 | In Progress|  |
+| 4. Review Queue and Sequence Enrollment | 5/6 | In Progress|  |
 | 5. Analytics Dashboard | 0/TBD | Not started | - |
