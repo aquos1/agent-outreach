@@ -12,6 +12,12 @@ It supports three outreach goals:
 
 ---
 
+## Why?
+
+Spent 3-4 months sourcing clients; manually finding linkedins, crafting warm messages, and relying on warm connections to get us noticed. Inefficient & not solvent. 
+
+Cost over 500+ hours of work. 
+
 ## How it works (end to end)
 
 ```
