@@ -128,7 +128,7 @@ The tests cover the pure logic, the Apollo client (with mocked HTTP), the schema
 | 1. Foundation | Health checks, SQLite registry | ✅ Done |
 | 2. Contact Discovery | Paths, search, enrichment, dedup | ✅ Done |
 | 3. AI Personalization | Haiku opening lines, templates, drafts | ✅ Done |
-| 4. Review Queue & Enrollment | Template editor, approval, Apollo sequencing | 🚧 Built; waiting on a live check with real sequence IDs |
+| 4. Review Queue & Enrollment | Template editor, approval, Apollo sequencing | ✅ Done |
 | 5. Analytics Dashboard | Open/reply rates per campaign from Apollo | ⏳ Not started |
 
 ## Cost notes
